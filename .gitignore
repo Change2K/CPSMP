@@ -1,0 +1,35 @@
+# Maven / Build
+target/
+*.jar
+*.war
+*.ear
+
+# Java
+*.class
+*.log
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Minecraft server files - do not commit live server data
+/plugins/
+logs/
+world/
+world_nether/
+world_the_end/
+banned-ips.json
+banned-players.json
+ops.json
+usercache.json
+whitelist.json
+
+# Environment / secrets
+.env
+*.key
+*.pem

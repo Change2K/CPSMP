@@ -1,0 +1,38 @@
+# CPSMP zone definitions.
+# Two zones are supported: "danger" and "attack".
+# Set spawns in-game via /cpsmpadmin setzone <danger|attack>.
+
+zones:
+  danger:
+    enabled: true
+    world: "world"
+    spawn:
+      enabled: false
+      world: "world"
+      x: 0.5
+      y: 100.0
+      z: 0.5
+      yaw: 0.0
+      pitch: 0.0
+    rules:
+      pvp: true
+      keep-inventory: false
+      allow-build: false
+      allow-item-drop: true
+
+  attack:
+    enabled: true
+    world: "world"
+    spawn:
+      enabled: false
+      world: "world"
+      x: 0.5
+      y: 100.0
+      z: 0.5
+      yaw: 0.0
+      pitch: 0.0
+    rules:
+      pvp: true
+      keep-inventory: false
+      allow-build: false
+      allow-item-drop: true

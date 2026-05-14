@@ -1,0 +1,77 @@
+# CPSMP portal definitions.
+# Each portal is a cuboid region. Set the region in-game via:
+#   /cpsmpadmin setportal <name> pos1
+#   /cpsmpadmin setportal <name> pos2
+#   /cpsmpadmin setportal <name> target
+#
+# Supported portal keys (used by listeners):
+#   lobby_to_smp
+#   smp_rtp
+#   smp_to_danger_zone
+#   smp_to_attack_zone
+
+portals:
+  lobby_to_smp:
+    enabled: false
+    type: "TELEPORT"
+    cooldown-ms: 4000
+    sound: "BLOCK_BEACON_ACTIVATE"
+    particles: "PORTAL"
+    title: "SMP"
+    subtitle: "Willkommen auf dem SMP."
+    actionbar: "<aqua>Du betrittst den SMP.</aqua>"
+    region:
+      world: "lobby"
+      min: { x: 0, y: 64, z: 0 }
+      max: { x: 0, y: 64, z: 0 }
+    target:
+      world: "world"
+      x: 0.5
+      y: 100.0
+      z: 0.5
+      yaw: 0.0
+      pitch: 0.0
+
+  smp_rtp:
+    enabled: false
+    type: "RTP"
+    cooldown-ms: 4000
+    sound: "ENTITY_ENDERMAN_TELEPORT"
+    particles: "REVERSE_PORTAL"
+    title: "RTP"
+    subtitle: "Dein Abenteuer beginnt."
+    actionbar: "<gold>Zufaelliger Teleport...</gold>"
+    region:
+      world: "world"
+      min: { x: 0, y: 64, z: 0 }
+      max: { x: 0, y: 64, z: 0 }
+    # RTP portals ignore "target" and use rtp settings instead.
+
+  smp_to_danger_zone:
+    enabled: false
+    type: "ZONE_DANGER"
+    cooldown-ms: 4000
+    sound: "BLOCK_RESPAWN_ANCHOR_CHARGE"
+    particles: "FLAME"
+    title: "Gefahrenzone"
+    subtitle: "PvP ist aktiviert. Sei vorsichtig."
+    actionbar: "<red>Du betrittst die Gefahrenzone.</red>"
+    region:
+      world: "world"
+      min: { x: 0, y: 64, z: 0 }
+      max: { x: 0, y: 64, z: 0 }
+    # Zone portals ignore "target" and use the configured zone spawn.
+
+  smp_to_attack_zone:
+    enabled: false
+    type: "ZONE_ATTACK"
+    cooldown-ms: 4000
+    sound: "BLOCK_RESPAWN_ANCHOR_CHARGE"
+    particles: "SOUL_FIRE_FLAME"
+    title: "Attack-Zone"
+    subtitle: "Kaempfe. Ueberlebe. Dominiere."
+    actionbar: "<dark_red>Du betrittst die Attack-Zone.</dark_red>"
+    region:
+      world: "world"
+      min: { x: 0, y: 64, z: 0 }
+      max: { x: 0, y: 64, z: 0 }

@@ -1,0 +1,68 @@
+# CPSMP player-facing strings (German).
+# MiniMessage format. {placeholders} are replaced at runtime.
+
+general:
+  no-permission: "<red>Dazu hast du keine Berechtigung.</red>"
+  player-only: "<red>Dieser Befehl ist nur fuer Spieler verfuegbar.</red>"
+  unknown-command: "<red>Unbekannter Befehl.</red>"
+  reload-success: "<green>Konfiguration wurde neu geladen.</green>"
+  world-missing: "<red>Welt <yellow>{world}</yellow> ist nicht geladen.</red>"
+  cooldown: "<gray>Bitte warte noch <yellow>{time}</yellow> Sekunden.</gray>"
+
+teleport:
+  start: "<gray>Teleportation startet...</gray>"
+  countdown-actionbar: "<gray>Teleport in <yellow>{time}</yellow>s <dark_gray>|</dark_gray> <red>Bewege dich nicht.</red></gray>"
+  do-not-move: "<red>Bewege dich nicht.</red>"
+  cancelled-move: "<red>Teleportation abgebrochen.</red>"
+  cancelled-damage: "<red>Teleportation durch Schaden abgebrochen.</red>"
+  success: "<green>Teleportation erfolgreich.</green>"
+
+spawn:
+  welcome-title: "SMP-Spawn"
+  welcome-subtitle: "Willkommen am SMP-Spawn."
+  welcome-actionbar: "<green>Willkommen am SMP-Spawn.</green>"
+  not-configured: "<red>Der SMP-Spawn wurde noch nicht gesetzt.</red>"
+
+rtp:
+  searching-actionbar: "<gray>Suche sicheren Ort...</gray>"
+  found-actionbar: "<green>Sicherer Ort gefunden.</green>"
+  success-title: "Abenteuer"
+  success-subtitle: "Dein Abenteuer beginnt."
+  failed: "<red>Es konnte kein sicherer Ort gefunden werden.</red>"
+  world-not-allowed: "<red>RTP ist in dieser Welt nicht erlaubt.</red>"
+
+portal:
+  cooldown: "<gray>Portal-Cooldown. Bitte kurz warten.</gray>"
+  default-title: "Portal"
+  default-subtitle: "Du wirst teleportiert."
+  default-actionbar: "<aqua>Portal aktiviert.</aqua>"
+  target-missing: "<red>Dieses Portal ist nicht korrekt konfiguriert.</red>"
+
+zones:
+  danger:
+    enter-title: "Gefahrenzone"
+    enter-subtitle: "PvP ist aktiviert. Sei vorsichtig."
+    enter-actionbar: "<red>Du betrittst die Gefahrenzone.</red>"
+    no-permission: "<red>Du darfst die Gefahrenzone nicht betreten.</red>"
+    not-configured: "<red>Die Gefahrenzone ist noch nicht konfiguriert.</red>"
+  attack:
+    enter-title: "Attack-Zone"
+    enter-subtitle: "Kaempfe. Ueberlebe. Dominiere."
+    enter-actionbar: "<dark_red>Du betrittst die Attack-Zone.</dark_red>"
+    no-permission: "<red>Du darfst die Attack-Zone nicht betreten.</red>"
+    not-configured: "<red>Die Attack-Zone ist noch nicht konfiguriert.</red>"
+
+admin:
+  usage: "<gray>Nutzung: <yellow>/cpsmpadmin <setspawn|setportal|setzone|reload|info></yellow></gray>"
+  spawn-set: "<green>SMP-Spawn wurde gesetzt.</green>"
+  portal-set-pos1: "<green>Portal <yellow>{portal}</yellow>: Position 1 gesetzt.</green>"
+  portal-set-pos2: "<green>Portal <yellow>{portal}</yellow>: Position 2 gesetzt. Portal aktualisiert.</green>"
+  portal-set-target: "<green>Portal <yellow>{portal}</yellow>: Zielort gesetzt.</green>"
+  portal-unknown: "<red>Unbekanntes Portal: <yellow>{portal}</yellow></red>"
+  portal-usage: "<gray>Nutzung: <yellow>/cpsmpadmin setportal <name> <pos1|pos2|target></yellow></gray>"
+  zone-set: "<green>Zone <yellow>{zone}</yellow> wurde aktualisiert.</green>"
+  zone-usage: "<gray>Nutzung: <yellow>/cpsmpadmin setzone <danger|attack></yellow></gray>"
+  info-header: "<gradient:#5BCEFA:#F5A9B8><bold>CPSMP</bold></gradient> <dark_gray>v{version}</dark_gray>"
+  info-spawn: "<gray>SMP-Spawn: <yellow>{state}</yellow></gray>"
+  info-portals: "<gray>Portale: <yellow>{count}</yellow> aktiv</gray>"
+  info-zones: "<gray>Zonen: <yellow>Gefahr={danger}</yellow>, <yellow>Attack={attack}</yellow></gray>"

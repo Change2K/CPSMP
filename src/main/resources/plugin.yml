@@ -1,0 +1,51 @@
+name: CPSMP
+version: '${project.version}'
+main: de.deinserver.cpsmp.CPSMPPlugin
+api-version: '1.21'
+author: deinserver
+description: Premium SMP foundation plugin (V1).
+load: POSTWORLD
+
+commands:
+  spawn:
+    description: Teleportiere dich zum SMP-Spawn.
+    usage: /spawn
+    permission: cpsmp.spawn
+  smpspawn:
+    description: Teleportiere dich zum SMP-Spawn.
+    usage: /smpspawn
+    permission: cpsmp.spawn
+  rtp:
+    description: Zufaelliger Teleport in der aktuellen Welt.
+    usage: /rtp
+    permission: cpsmp.rtp
+  cpsmpadmin:
+    description: Administrative Befehle fuer CPSMP.
+    usage: /cpsmpadmin <setspawn|setportal|setzone|reload|info>
+    permission: cpsmp.admin
+    aliases: [cpsmpa, cpa]
+
+permissions:
+  cpsmp.spawn:
+    description: Erlaubt /spawn und /smpspawn.
+    default: true
+  cpsmp.rtp:
+    description: Erlaubt /rtp.
+    default: true
+  cpsmp.portal.use:
+    description: Erlaubt Portalbenutzung.
+    default: true
+  cpsmp.zone.danger:
+    description: Erlaubt das Betreten der Gefahrenzone.
+    default: true
+  cpsmp.zone.attack:
+    description: Erlaubt das Betreten der Attack-Zone.
+    default: true
+  cpsmp.admin:
+    description: Voller Adminzugriff fuer CPSMP.
+    default: op
+    children:
+      cpsmp.reload: true
+  cpsmp.reload:
+    description: Erlaubt das Neuladen der Konfiguration.
+    default: op
