@@ -26,7 +26,7 @@ spawn:
 rtp:
   searching-actionbar: "<gray>Suche sicheren Ort...</gray>"
   found-actionbar: "<green>Sicherer Ort gefunden.</green>"
-  success-title: "Abenteuer"
+  success-title: "CPSMP"
   success-subtitle: "Dein Abenteuer beginnt."
   failed: "<red>Es konnte kein sicherer Ort gefunden werden.</red>"
   world-not-allowed: "<red>RTP ist in dieser Welt nicht erlaubt.</red>"
