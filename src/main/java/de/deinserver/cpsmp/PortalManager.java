@@ -17,6 +17,17 @@ import java.util.Map;
  * ({@code lobby_to_smp}, {@code smp_rtp}, {@code smp_to_danger_zone},
  * {@code smp_to_attack_zone}) are guaranteed to exist after {@link #load()}
  * even when {@code portals.yml} is partially missing.
+ *
+ * <p>Setup safety contract (V2):
+ * <ul>
+ *     <li>Setting a corner never auto-enables a portal. Admins enable
+ *         explicitly via {@link #setEnabled(String, boolean)}.</li>
+ *     <li>The legacy {@code region.min/max} schema is migrated to the
+ *         {@code pos1}/{@code pos2} schema on first write.</li>
+ *     <li>{@link #setCorner(String, Corner, Location)} returns a
+ *         {@link CornerSetResult} so callers can show targeted German
+ *         warnings (other corner missing, cross-world, large region).</li>
+ * </ul>
  */
 public final class PortalManager {
 
@@ -84,48 +95,54 @@ public final class PortalManager {
     }
 
     /**
-     * Sets one corner of a portal in {@code portals.yml} and reloads the
-     * in-memory portal. Returns true if the portal section exists.
+     * Persists a single corner of {@code portalName} in the new
+     * {@code pos1/pos2/target} schema, removes the legacy {@code region}
+     * block on first edit, and re-parses the portal. Never toggles
+     * {@code enabled}.
      */
-    public boolean setCorner(String portalName, Corner corner, Location location) {
+    public CornerSetResult setCorner(String portalName, Corner corner, Location location) {
         FileConfiguration cfg = plugin.getConfigManager().getPortals();
         ConfigurationSection section = cfg.getConfigurationSection("portals." + portalName);
         if (section == null) {
-            return false;
+            return CornerSetResult.unknown();
         }
         if (location.getWorld() == null) {
-            return false;
+            return CornerSetResult.unknown();
         }
+
         switch (corner) {
-            case POS1 -> {
-                ConfigurationSection region = ensureSection(section, "region");
-                region.set("world", location.getWorld().getName());
-                ConfigurationSection min = ensureSection(region, "min");
-                min.set("x", location.getBlockX());
-                min.set("y", location.getBlockY());
-                min.set("z", location.getBlockZ());
-            }
-            case POS2 -> {
-                ConfigurationSection region = ensureSection(section, "region");
-                if (region.getString("world") == null) {
-                    region.set("world", location.getWorld().getName());
-                }
-                ConfigurationSection max = ensureSection(region, "max");
-                max.set("x", location.getBlockX());
-                max.set("y", location.getBlockY());
-                max.set("z", location.getBlockZ());
-            }
+            case POS1, POS2 -> writeCorner(section, corner == Corner.POS1 ? "pos1" : "pos2", location);
             case TARGET -> {
                 ConfigurationSection target = ensureSection(section, "target");
                 LocationSerializer.write(target, location);
             }
         }
-        // Enable the portal automatically once both pos1 and pos2 are configured for a TELEPORT portal.
-        section.set("enabled", true);
+
+        // Clean up the legacy region: {world, min, max} block if it still exists.
+        // Once both corners exist in the new schema the legacy block is redundant.
+        if (corner != Corner.TARGET && section.isConfigurationSection("region")) {
+            section.set("region", null);
+        }
+
         plugin.getConfigManager().savePortals();
-        // Re-parse just this portal.
-        portals.put(portalName, Portal.fromSection(portalName, section));
-        return true;
+        Portal updated = Portal.fromSection(portalName, section);
+        portals.put(portalName, updated);
+
+        long largeThreshold = plugin.getConfig()
+                .getLong("portal-setup.large-region-warning-volume", 100L);
+
+        return CornerSetResult.fromPortal(updated, largeThreshold);
+    }
+
+    private void writeCorner(ConfigurationSection portalSection, String key, Location loc) {
+        // Always overwrite the whole sub-section so stale fields cannot
+        // poison the state after schema changes.
+        portalSection.set(key, null);
+        ConfigurationSection corner = portalSection.createSection(key);
+        corner.set("world", loc.getWorld() != null ? loc.getWorld().getName() : null);
+        corner.set("x", loc.getBlockX());
+        corner.set("y", loc.getBlockY());
+        corner.set("z", loc.getBlockZ());
     }
 
     private ConfigurationSection ensureSection(ConfigurationSection parent, String name) {
@@ -134,5 +151,77 @@ public final class PortalManager {
             child = parent.createSection(name);
         }
         return child;
+    }
+
+    /**
+     * Toggles {@code enabled} for the named portal. Returns the updated
+     * portal or {@code null} if the name is unknown. Persists the change.
+     */
+    @Nullable
+    public Portal setEnabled(String portalName, boolean enabled) {
+        FileConfiguration cfg = plugin.getConfigManager().getPortals();
+        ConfigurationSection section = cfg.getConfigurationSection("portals." + portalName);
+        if (section == null) {
+            return null;
+        }
+        section.set("enabled", enabled);
+        plugin.getConfigManager().savePortals();
+        Portal updated = Portal.fromSection(portalName, section);
+        portals.put(portalName, updated);
+        return updated;
+    }
+
+    /**
+     * Clears pos1/pos2 (and the legacy region block) and disables the
+     * portal. Target and presentation fields are preserved.
+     */
+    @Nullable
+    public Portal reset(String portalName) {
+        FileConfiguration cfg = plugin.getConfigManager().getPortals();
+        ConfigurationSection section = cfg.getConfigurationSection("portals." + portalName);
+        if (section == null) {
+            return null;
+        }
+        section.set("enabled", false);
+        section.set("pos1", null);
+        section.set("pos2", null);
+        section.set("region", null);
+        plugin.getConfigManager().savePortals();
+        Portal updated = Portal.fromSection(portalName, section);
+        portals.put(portalName, updated);
+        return updated;
+    }
+
+    // --- Result type -----------------------------------------------------
+
+    /**
+     * Outcome of {@link #setCorner}. The {@code warning*} fields carry a
+     * {@code messages.yml} key plus placeholders so the caller can render
+     * a localized German message without re-deriving state.
+     */
+    public record CornerSetResult(
+            boolean ok,
+            @Nullable Portal portal,
+            @Nullable String warningKey,
+            @Nullable Map<String, String> warningPlaceholders
+    ) {
+        public static CornerSetResult unknown() {
+            return new CornerSetResult(false, null, null, null);
+        }
+
+        public static CornerSetResult fromPortal(Portal portal, long largeThreshold) {
+            // Priority: cross-world > other corner missing > large-region.
+            if (portal.isCrossWorld()) {
+                return new CornerSetResult(true, portal, "admin.portal-cross-world", null);
+            }
+            if (!portal.isPos1Set() || !portal.isPos2Set()) {
+                return new CornerSetResult(true, portal, "admin.portal-incomplete", null);
+            }
+            if (portal.getVolume() > largeThreshold) {
+                return new CornerSetResult(true, portal, "admin.portal-large-region",
+                        Map.of("size", Long.toString(portal.getVolume())));
+            }
+            return new CornerSetResult(true, portal, null, null);
+        }
     }
 }

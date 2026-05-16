@@ -37,6 +37,8 @@ portal:
   default-subtitle: "Du wirst teleportiert."
   default-actionbar: "<aqua>Portal aktiviert.</aqua>"
   target-missing: "<red>Dieses Portal ist nicht korrekt konfiguriert.</red>"
+  bypass-active: "<gray>Portal-Bypass aktiv, solange du schleichst.</gray>"
+  not-inside: "<gray>Du stehst nicht im Portalbereich.</gray>"
 
 zones:
   danger:
@@ -53,13 +55,34 @@ zones:
     not-configured: "<red>Die Attack-Zone ist noch nicht konfiguriert.</red>"
 
 admin:
-  usage: "<gray>Nutzung: <yellow>/cpsmpadmin <setspawn|setportal|setzone|reload|info></yellow></gray>"
+  usage: "<gray>Nutzung: <yellow>/cpsmpadmin <setspawn|setportal|portal|setzone|reload|info></yellow></gray>"
   spawn-set: "<green>SMP-Spawn wurde gesetzt.</green>"
+  # /cpsmpadmin setportal feedback (just saving a corner; never enables).
   portal-set-pos1: "<green>Portal <yellow>{portal}</yellow>: Position 1 gesetzt.</green>"
-  portal-set-pos2: "<green>Portal <yellow>{portal}</yellow>: Position 2 gesetzt. Portal aktualisiert.</green>"
+  portal-set-pos2: "<green>Portal <yellow>{portal}</yellow>: Position 2 gesetzt.</green>"
   portal-set-target: "<green>Portal <yellow>{portal}</yellow>: Zielort gesetzt.</green>"
   portal-unknown: "<red>Unbekanntes Portal: <yellow>{portal}</yellow></red>"
   portal-usage: "<gray>Nutzung: <yellow>/cpsmpadmin setportal <name> <pos1|pos2|target></yellow></gray>"
+  # Setup-safety warnings raised by setCorner / portal info / portal enable.
+  portal-incomplete: "<yellow>Portal ist unvollstaendig. Beide Ecken (pos1 und pos2) muessen gesetzt sein.</yellow>"
+  portal-cross-world: "<red>pos1 und pos2 muessen in derselben Welt liegen.</red>"
+  portal-size: "<gray>Portalbereich: <yellow>{sizeX}x{sizeY}x{sizeZ}</yellow> Bloecke.</gray>"
+  portal-large-region: "<gold>Achtung: Dieser Portalbereich ist sehr gross (<yellow>{size}</yellow> Bloecke). Pruefe pos1 und pos2.</gold>"
+  # /cpsmpadmin portal <name> <action> feedback.
+  portal-action-usage: "<gray>Nutzung: <yellow>/cpsmpadmin portal <name> <enable|disable|reset|info></yellow></gray>"
+  portal-enabled: "<green>Portal <yellow>{portal}</yellow> aktiviert.</green>"
+  portal-disabled: "<gray>Portal <yellow>{portal}</yellow> deaktiviert.</gray>"
+  portal-reset: "<gray>Portal <yellow>{portal}</yellow> zurueckgesetzt.</gray>"
+  portal-valid: "<green>Portal ist gueltig.</green>"
+  portal-invalid: "<red>Portal ist ungueltig.</red>"
+  portal-info-header: "<gradient:#5BCEFA:#F5A9B8><bold>Portal {portal}</bold></gradient>"
+  portal-info-enabled: "<gray>Aktiviert: <yellow>{state}</yellow></gray>"
+  portal-info-type: "<gray>Typ: <yellow>{type}</yellow></gray>"
+  portal-info-world: "<gray>Welt: <yellow>{world}</yellow></gray>"
+  portal-info-pos1: "<gray>pos1: <yellow>{pos}</yellow></gray>"
+  portal-info-pos2: "<gray>pos2: <yellow>{pos}</yellow></gray>"
+  portal-info-bounds: "<gray>Normalisiert: <yellow>{min}</yellow> -> <yellow>{max}</yellow></gray>"
+  portal-info-target: "<gray>Zielort: <yellow>{target}</yellow></gray>"
   zone-set: "<green>Zone <yellow>{zone}</yellow> wurde aktualisiert.</green>"
   zone-usage: "<gray>Nutzung: <yellow>/cpsmpadmin setzone <danger|attack></yellow></gray>"
   info-header: "<gradient:#5BCEFA:#F5A9B8><bold>CPSMP</bold></gradient> <dark_gray>v{version}</dark_gray>"

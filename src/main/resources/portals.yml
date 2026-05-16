@@ -1,8 +1,24 @@
 # CPSMP portal definitions.
-# Each portal is a cuboid region. Set the region in-game via:
+#
+# A portal is an inclusive integer cuboid spanned by pos1 and pos2 (block
+# precision; no padding, no radius). A portal only triggers when the
+# player's current block coordinate is inside that cuboid AND the
+# portal's world matches the player's world.
+#
+# Set corners and target IN-GAME (corners are intentionally not pre-baked
+# here so a fresh install never auto-triggers):
 #   /cpsmpadmin setportal <name> pos1
 #   /cpsmpadmin setportal <name> pos2
-#   /cpsmpadmin setportal <name> target
+#   /cpsmpadmin setportal <name> target      # TELEPORT portals only
+#
+# Lifecycle and inspection:
+#   /cpsmpadmin portal <name> enable
+#   /cpsmpadmin portal <name> disable
+#   /cpsmpadmin portal <name> reset          # clears pos1/pos2, disables
+#   /cpsmpadmin portal <name> info           # full status + size
+#
+# Setting a corner NEVER auto-enables the portal. Admins enable explicitly
+# only after the configuration is complete and verified.
 #
 # Supported portal keys (used by listeners):
 #   lobby_to_smp
@@ -25,10 +41,6 @@ portals:
     title: "SMP"
     subtitle: "Willkommen auf dem SMP."
     actionbar: "<aqua>Du betrittst den SMP.</aqua>"
-    region:
-      world: "lobby"
-      min: { x: 0, y: 64, z: 0 }
-      max: { x: 0, y: 64, z: 0 }
     target:
       world: "world"
       x: 0.5
@@ -46,10 +58,6 @@ portals:
     title: "RTP"
     subtitle: "Dein Abenteuer beginnt."
     actionbar: "<gold>Zufaelliger Teleport...</gold>"
-    region:
-      world: "world"
-      min: { x: 0, y: 64, z: 0 }
-      max: { x: 0, y: 64, z: 0 }
     # RTP portals ignore "target" and use rtp settings instead.
 
   smp_to_danger_zone:
@@ -61,10 +69,6 @@ portals:
     title: "Gefahrenzone"
     subtitle: "PvP ist aktiviert. Sei vorsichtig."
     actionbar: "<red>Du betrittst die Gefahrenzone.</red>"
-    region:
-      world: "world"
-      min: { x: 0, y: 64, z: 0 }
-      max: { x: 0, y: 64, z: 0 }
     # Zone portals ignore "target" and use the configured zone spawn.
 
   smp_to_attack_zone:
@@ -76,7 +80,3 @@ portals:
     title: "Attack-Zone"
     subtitle: "Kaempfe. Ueberlebe. Dominiere."
     actionbar: "<dark_red>Du betrittst die Attack-Zone.</dark_red>"
-    region:
-      world: "world"
-      min: { x: 0, y: 64, z: 0 }
-      max: { x: 0, y: 64, z: 0 }

@@ -10,7 +10,6 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -19,7 +18,10 @@ import java.util.Map;
  * The single {@code /cpsmpadmin} entry point. Subcommands:
  * <ul>
  *     <li>{@code setspawn} - persists the SMP spawn to the configured world</li>
- *     <li>{@code setportal <name> <pos1|pos2|target>} - edits a portal corner</li>
+ *     <li>{@code setportal <name> <pos1|pos2|target>} - edits a portal corner
+ *         (never auto-enables the portal)</li>
+ *     <li>{@code portal <name> <enable|disable|reset|info>} - explicit
+ *         portal lifecycle and inspection</li>
  *     <li>{@code setzone <danger|attack>} - sets the zone's spawn</li>
  *     <li>{@code reload} - re-loads all configs</li>
  *     <li>{@code info} - prints a short status summary</li>
@@ -27,8 +29,11 @@ import java.util.Map;
  */
 public final class AdminCommand implements CommandExecutor, TabCompleter {
 
-    private static final List<String> ROOT = List.of("setspawn", "setportal", "setzone", "reload", "info");
+    private static final List<String> ROOT = List.of(
+            "setspawn", "setportal", "portal", "setzone", "reload", "info");
     private static final List<String> CORNERS = List.of("pos1", "pos2", "target");
+    private static final List<String> PORTAL_ACTIONS = List.of(
+            "enable", "disable", "reset", "info");
     private static final List<String> ZONES = List.of("danger", "attack");
 
     private final CPSMPPlugin plugin;
@@ -52,6 +57,7 @@ public final class AdminCommand implements CommandExecutor, TabCompleter {
         return switch (sub) {
             case "setspawn" -> handleSetSpawn(sender);
             case "setportal" -> handleSetPortal(sender, args);
+            case "portal" -> handlePortal(sender, args);
             case "setzone" -> handleSetZone(sender, args);
             case "reload" -> handleReload(sender);
             case "info" -> handleInfo(sender);
@@ -97,8 +103,9 @@ public final class AdminCommand implements CommandExecutor, TabCompleter {
                 return true;
             }
         }
-        boolean ok = plugin.getPortalManager().setCorner(portalName, corner, player.getLocation());
-        if (!ok) {
+        PortalManager.CornerSetResult result =
+                plugin.getPortalManager().setCorner(portalName, corner, player.getLocation());
+        if (!result.ok()) {
             plugin.getMessageManager().sendPrefixed(player, "admin.portal-unknown",
                     Map.of("portal", portalName));
             return true;
@@ -111,7 +118,140 @@ public final class AdminCommand implements CommandExecutor, TabCompleter {
             case TARGET -> plugin.getMessageManager().sendPrefixed(player, "admin.portal-set-target",
                     Map.of("portal", portalName));
         }
+        // Setup-safety follow-up (cross-world / incomplete / large-region).
+        if (result.warningKey() != null) {
+            Map<String, String> placeholders = result.warningPlaceholders() != null
+                    ? result.warningPlaceholders() : Map.of();
+            plugin.getMessageManager().sendPrefixed(player, result.warningKey(), placeholders);
+        }
+        // Always show the live size if both corners are present.
+        Portal updated = result.portal();
+        if (updated != null && updated.isPos1Set() && updated.isPos2Set() && !updated.isCrossWorld()) {
+            plugin.getMessageManager().sendPrefixed(player, "admin.portal-size", Map.of(
+                    "sizeX", Integer.toString(updated.getSizeX()),
+                    "sizeY", Integer.toString(updated.getSizeY()),
+                    "sizeZ", Integer.toString(updated.getSizeZ())
+            ));
+        }
         return true;
+    }
+
+    private boolean handlePortal(CommandSender sender, String[] args) {
+        if (args.length < 3) {
+            plugin.getMessageManager().sendPrefixed(sender, "admin.portal-action-usage");
+            return true;
+        }
+        String portalName = args[1];
+        if (!plugin.getPortalManager().has(portalName)) {
+            plugin.getMessageManager().sendPrefixed(sender, "admin.portal-unknown",
+                    Map.of("portal", portalName));
+            return true;
+        }
+        String action = args[2].toLowerCase(Locale.ROOT);
+        return switch (action) {
+            case "enable" -> handlePortalEnable(sender, portalName, true);
+            case "disable" -> handlePortalEnable(sender, portalName, false);
+            case "reset" -> handlePortalReset(sender, portalName);
+            case "info" -> handlePortalInfo(sender, portalName);
+            default -> {
+                plugin.getMessageManager().sendPrefixed(sender, "admin.portal-action-usage");
+                yield true;
+            }
+        };
+    }
+
+    private boolean handlePortalEnable(CommandSender sender, String portalName, boolean enable) {
+        Portal current = plugin.getPortalManager().get(portalName);
+        if (current == null) {
+            plugin.getMessageManager().sendPrefixed(sender, "admin.portal-unknown",
+                    Map.of("portal", portalName));
+            return true;
+        }
+        // Guard against enabling an incomplete or cross-world portal.
+        if (enable && (!current.isPos1Set() || !current.isPos2Set() || current.isCrossWorld())) {
+            String key = current.isCrossWorld() ? "admin.portal-cross-world" : "admin.portal-incomplete";
+            plugin.getMessageManager().sendPrefixed(sender, key);
+            return true;
+        }
+        Portal updated = plugin.getPortalManager().setEnabled(portalName, enable);
+        if (updated == null) {
+            plugin.getMessageManager().sendPrefixed(sender, "admin.portal-unknown",
+                    Map.of("portal", portalName));
+            return true;
+        }
+        plugin.getMessageManager().sendPrefixed(sender,
+                enable ? "admin.portal-enabled" : "admin.portal-disabled",
+                Map.of("portal", portalName));
+        return true;
+    }
+
+    private boolean handlePortalReset(CommandSender sender, String portalName) {
+        Portal updated = plugin.getPortalManager().reset(portalName);
+        if (updated == null) {
+            plugin.getMessageManager().sendPrefixed(sender, "admin.portal-unknown",
+                    Map.of("portal", portalName));
+            return true;
+        }
+        plugin.getMessageManager().sendPrefixed(sender, "admin.portal-reset",
+                Map.of("portal", portalName));
+        return true;
+    }
+
+    private boolean handlePortalInfo(CommandSender sender, String portalName) {
+        Portal p = plugin.getPortalManager().get(portalName);
+        if (p == null) {
+            plugin.getMessageManager().sendPrefixed(sender, "admin.portal-unknown",
+                    Map.of("portal", portalName));
+            return true;
+        }
+        MessageManager m = plugin.getMessageManager();
+        m.sendPrefixed(sender, "admin.portal-info-header", Map.of("portal", portalName));
+        m.sendPrefixed(sender, "admin.portal-info-enabled",
+                Map.of("state", p.isEnabled() ? "AN" : "AUS"));
+        m.sendPrefixed(sender, p.isValid()
+                ? "admin.portal-valid"
+                : "admin.portal-invalid");
+        m.sendPrefixed(sender, "admin.portal-info-type",
+                Map.of("type", p.getType().name()));
+        m.sendPrefixed(sender, "admin.portal-info-world",
+                Map.of("world", p.getRegionWorld() != null ? p.getRegionWorld() : "-"));
+        m.sendPrefixed(sender, "admin.portal-info-pos1",
+                Map.of("pos", formatCorner(p.getPos1())));
+        m.sendPrefixed(sender, "admin.portal-info-pos2",
+                Map.of("pos", formatCorner(p.getPos2())));
+        if (p.isPos1Set() && p.isPos2Set() && !p.isCrossWorld()) {
+            m.sendPrefixed(sender, "admin.portal-info-bounds", Map.of(
+                    "min", p.getMinX() + "/" + p.getMinY() + "/" + p.getMinZ(),
+                    "max", p.getMaxX() + "/" + p.getMaxY() + "/" + p.getMaxZ()
+            ));
+            m.sendPrefixed(sender, "admin.portal-size", Map.of(
+                    "sizeX", Integer.toString(p.getSizeX()),
+                    "sizeY", Integer.toString(p.getSizeY()),
+                    "sizeZ", Integer.toString(p.getSizeZ())
+            ));
+            long largeThreshold = plugin.getConfig()
+                    .getLong("portal-setup.large-region-warning-volume", 100L);
+            if (p.getVolume() > largeThreshold) {
+                m.sendPrefixed(sender, "admin.portal-large-region",
+                        Map.of("size", Long.toString(p.getVolume())));
+            }
+        }
+        // Target (only meaningful for TELEPORT) or zone description.
+        Location target = p.getTarget();
+        if (target != null && target.getWorld() != null) {
+            String formatted = target.getWorld().getName() + " " +
+                    target.getBlockX() + "/" + target.getBlockY() + "/" + target.getBlockZ();
+            m.sendPrefixed(sender, "admin.portal-info-target",
+                    Map.of("target", formatted));
+        } else if (p.getType() == Portal.Type.TELEPORT) {
+            m.sendPrefixed(sender, "admin.portal-info-target", Map.of("target", "-"));
+        }
+        return true;
+    }
+
+    private String formatCorner(@Nullable Portal.BlockCoord corner) {
+        if (corner == null) return "-";
+        return corner.world() + " " + corner.x() + "/" + corner.y() + "/" + corner.z();
     }
 
     private boolean handleSetZone(CommandSender sender, String[] args) {
@@ -190,7 +330,7 @@ public final class AdminCommand implements CommandExecutor, TabCompleter {
         if (args.length == 1) return filter(ROOT, args[0]);
         if (args.length == 2) {
             switch (args[0].toLowerCase(Locale.ROOT)) {
-                case "setportal" -> {
+                case "setportal", "portal" -> {
                     return filter(plugin.getPortalManager().all().stream()
                             .map(Portal::getName).toList(), args[1]);
                 }
@@ -200,8 +340,10 @@ public final class AdminCommand implements CommandExecutor, TabCompleter {
                 default -> { /* fall through */ }
             }
         }
-        if (args.length == 3 && args[0].equalsIgnoreCase("setportal")) {
-            return filter(CORNERS, args[2]);
+        if (args.length == 3) {
+            String head = args[0].toLowerCase(Locale.ROOT);
+            if (head.equals("setportal")) return filter(CORNERS, args[2]);
+            if (head.equals("portal")) return filter(PORTAL_ACTIONS, args[2]);
         }
         return List.of();
     }

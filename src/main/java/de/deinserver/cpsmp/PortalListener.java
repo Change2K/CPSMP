@@ -25,10 +25,24 @@ import java.util.UUID;
  *
  * <p>Per-player cooldowns make sure portals never form a teleport loop, even
  * if the destination overlaps another portal.
+ *
+ * <p>Detection uses the player's current block-integer position checked
+ * against the portal's exact inclusive cuboid - never a radius and never a
+ * distance test. See {@link Portal#contains(Location)}.
+ *
+ * <p>Admin bypass: while sneaking, OP players and holders of
+ * {@code cpsmp.portal.bypass} pass through portal regions without
+ * triggering. A short German actionbar is shown so admins know the bypass
+ * is active.
  */
 public final class PortalListener implements Listener {
 
     private static final String PORTAL_COOLDOWN_KEY = "portal";
+    /** Permission node that, combined with sneaking, suppresses portal triggers. */
+    public static final String BYPASS_PERMISSION = "cpsmp.portal.bypass";
+    /** Cooldown bucket for the bypass actionbar so we don't spam it every tick. */
+    private static final String BYPASS_HINT_COOLDOWN_KEY = "portal_bypass_hint";
+    private static final long BYPASS_HINT_COOLDOWN_MS = 3000L;
 
     private final CPSMPPlugin plugin;
     /** Players currently inside any portal region (used to fire once per entry). */
@@ -72,6 +86,7 @@ public final class PortalListener implements Listener {
         Location loc = player.getLocation();
         Portal matched = null;
         for (Portal portal : plugin.getPortalManager().enabledValid()) {
+            // Portal.contains() does an exact inclusive block-cuboid check.
             if (portal.contains(loc)) {
                 matched = portal;
                 break;
@@ -81,6 +96,16 @@ public final class PortalListener implements Listener {
             inside.remove(player.getUniqueId());
             return;
         }
+
+        // Admin bypass: sneaking + (OP or cpsmp.portal.bypass) suppresses
+        // the trigger so admins can configure portals from inside the
+        // region without being teleported away.
+        if (isBypassing(player)) {
+            inside.add(player.getUniqueId());
+            sendBypassHint(player);
+            return;
+        }
+
         if (inside.contains(player.getUniqueId())) {
             return; // Still inside the same portal; do nothing.
         }
@@ -92,6 +117,22 @@ public final class PortalListener implements Listener {
         }
 
         triggerPortal(player, matched);
+    }
+
+    private boolean isBypassing(Player player) {
+        if (!player.isSneaking()) {
+            return false;
+        }
+        return player.isOp() || player.hasPermission(BYPASS_PERMISSION);
+    }
+
+    private void sendBypassHint(Player player) {
+        if (plugin.getCooldowns().isOnCooldown(BYPASS_HINT_COOLDOWN_KEY, player.getUniqueId())) {
+            return;
+        }
+        plugin.getCooldowns().set(BYPASS_HINT_COOLDOWN_KEY, player.getUniqueId(),
+                BYPASS_HINT_COOLDOWN_MS);
+        plugin.getMessageManager().sendActionBar(player, "portal.bypass-active");
     }
 
     private void triggerPortal(Player player, Portal portal) {

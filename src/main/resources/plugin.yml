@@ -50,6 +50,9 @@ permissions:
   cpsmp.portal.use:
     description: Erlaubt Portalbenutzung.
     default: true
+  cpsmp.portal.bypass:
+    description: Erlaubt das Umgehen von Portalen waehrend des Schleichens.
+    default: op
   cpsmp.zone.danger:
     description: Erlaubt das Betreten der Gefahrenzone.
     default: true
@@ -62,6 +65,7 @@ permissions:
     children:
       cpsmp.reload: true
       cpsmp.rtp.bypasscooldown: true
+      cpsmp.portal.bypass: true
   cpsmp.reload:
     description: Erlaubt das Neuladen der Konfiguration.
     default: op

@@ -70,6 +70,13 @@ portals:
   # How often (ticks) we scan players for portal entry. 5 ticks = 4 checks / second.
   check-interval-ticks: 5
 
+portal-setup:
+  # Portal regions are inclusive cuboids spanned by pos1 and pos2 (block
+  # precision). If the total volume of a configured portal exceeds this
+  # threshold, /cpsmpadmin setportal and /cpsmpadmin portal info will warn
+  # the admin to double-check pos1 and pos2.
+  large-region-warning-volume: 100
+
 zones:
   # Per-player cooldown when re-entering a zone (milliseconds).
   enter-message-cooldown-ms: 8000
