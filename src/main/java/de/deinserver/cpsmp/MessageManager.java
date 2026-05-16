@@ -3,6 +3,7 @@ package de.deinserver.cpsmp;
 import net.kyori.adventure.audience.Audience;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import net.kyori.adventure.title.Title;
 import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -119,5 +120,19 @@ public final class MessageManager {
 
     public Component prefix() {
         return prefix;
+    }
+
+    /**
+     * Serializes a message to plain text with all MiniMessage tags stripped.
+     * Used for console / logger output where colour codes would just be
+     * noise, while still letting admins translate the strings centrally
+     * in {@code messages.yml}.
+     */
+    public String plain(String path) {
+        return PlainTextComponentSerializer.plainText().serialize(component(path));
+    }
+
+    public String plain(String path, Map<String, String> placeholders) {
+        return PlainTextComponentSerializer.plainText().serialize(component(path, placeholders));
     }
 }

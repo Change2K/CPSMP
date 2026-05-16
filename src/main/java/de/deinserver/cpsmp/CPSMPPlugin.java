@@ -4,6 +4,7 @@ import de.deinserver.cpsmp.compat.BukkitTeleportAdapter;
 import de.deinserver.cpsmp.compat.PaperTeleportAdapter;
 import de.deinserver.cpsmp.compat.ServerCompatibility;
 import de.deinserver.cpsmp.compat.TeleportAdapter;
+import de.deinserver.cpsmp.economy.EconomyManager;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
@@ -28,6 +29,7 @@ public final class CPSMPPlugin extends JavaPlugin {
 
     private ServerCompatibility serverCompatibility;
     private TeleportAdapter teleportAdapter;
+    private EconomyManager economyManager;
     private TeleportService teleportService;
     private RTPService rtpService;
     private PortalManager portalManager;
@@ -53,6 +55,13 @@ public final class CPSMPPlugin extends JavaPlugin {
                 ? new PaperTeleportAdapter()
                 : new BukkitTeleportAdapter(this);
         getLogger().info("Teleport backend: " + teleportAdapter.name());
+
+        // Economy is a foundation for V2 (Auction House). When no provider
+        // is registered the manager installs a NoEconomyBridge that fails
+        // every transaction with a German reason key; CPSMP V1 core has no
+        // economy-gated features today, so missing economy is non-fatal.
+        this.economyManager = new EconomyManager(this);
+        this.economyManager.load();
 
         this.teleportService = new TeleportService(this);
         this.teleportService.register();
@@ -114,6 +123,9 @@ public final class CPSMPPlugin extends JavaPlugin {
         rtpService.reload();
         portalManager.load();
         zoneManager.load();
+        if (economyManager != null) {
+            economyManager.load();
+        }
     }
 
     /**
@@ -162,4 +174,5 @@ public final class CPSMPPlugin extends JavaPlugin {
     public ZoneManager getZoneManager() { return zoneManager; }
     public ServerCompatibility getServerCompatibility() { return serverCompatibility; }
     public TeleportAdapter getTeleportAdapter() { return teleportAdapter; }
+    public EconomyManager getEconomyManager() { return economyManager; }
 }

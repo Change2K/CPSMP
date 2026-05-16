@@ -27,6 +27,13 @@
             See COMPATIBILITY.md.
         -->
         <paper.api.version>1.21.4-R0.1-SNAPSHOT</paper.api.version>
+        <!--
+            VaultAPI is the standard economy abstraction in the Bukkit
+            ecosystem. CPSMP depends on it at compile time only; at runtime
+            we detect whether Vault is installed AND whether a Vault
+            economy provider is registered. See DEPENDENCIES.md.
+        -->
+        <vault.api.version>1.7.1</vault.api.version>
         <java.version>21</java.version>
     </properties>
 
@@ -34,6 +41,11 @@
         <repository>
             <id>papermc</id>
             <url>https://repo.papermc.io/repository/maven-public/</url>
+        </repository>
+        <!-- VaultAPI is published through JitPack. -->
+        <repository>
+            <id>jitpack.io</id>
+            <url>https://jitpack.io</url>
         </repository>
     </repositories>
 
@@ -43,6 +55,28 @@
             <artifactId>paper-api</artifactId>
             <version>${paper.api.version}</version>
             <scope>provided</scope>
+        </dependency>
+        <!--
+            VaultAPI is `provided` so the classes are available at compile
+            time but never shipped inside our jar. At runtime we only
+            reference Vault classes after confirming the Vault plugin is
+            loaded; otherwise NoEconomyBridge is used and the Vault
+            classes are never resolved. CPSMP does not require Vault to
+            run; it is only required for economy-dependent features (e.g.
+            the planned Auction House).
+        -->
+        <dependency>
+            <groupId>com.github.MilkBowl</groupId>
+            <artifactId>VaultAPI</artifactId>
+            <version>${vault.api.version}</version>
+            <scope>provided</scope>
+            <exclusions>
+                <!-- VaultAPI ships against an old Bukkit; we already use paper-api. -->
+                <exclusion>
+                    <groupId>org.bukkit</groupId>
+                    <artifactId>bukkit</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
     </dependencies>
 

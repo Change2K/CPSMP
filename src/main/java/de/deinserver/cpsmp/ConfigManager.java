@@ -11,26 +11,29 @@ import java.nio.charset.StandardCharsets;
 import java.util.logging.Level;
 
 /**
- * Loads, saves and re-loads the four configuration files used by CPSMP:
- * {@code config.yml}, {@code messages.yml}, {@code portals.yml} and
- * {@code zones.yml}. Each external file is created from the bundled default
- * on first launch.
+ * Loads, saves and re-loads the configuration files used by CPSMP:
+ * {@code config.yml}, {@code messages.yml}, {@code portals.yml},
+ * {@code zones.yml} and {@code economy.yml}. Each external file is
+ * created from the bundled default on first launch.
  */
 public final class ConfigManager {
 
     private static final String MESSAGES_FILE = "messages.yml";
     private static final String PORTALS_FILE = "portals.yml";
     private static final String ZONES_FILE = "zones.yml";
+    private static final String ECONOMY_FILE = "economy.yml";
 
     private final CPSMPPlugin plugin;
 
     private File messagesFile;
     private File portalsFile;
     private File zonesFile;
+    private File economyFile;
 
     private FileConfiguration messages;
     private FileConfiguration portals;
     private FileConfiguration zones;
+    private FileConfiguration economy;
 
     public ConfigManager(CPSMPPlugin plugin) {
         this.plugin = plugin;
@@ -43,10 +46,12 @@ public final class ConfigManager {
         this.messagesFile = ensureFile(MESSAGES_FILE);
         this.portalsFile = ensureFile(PORTALS_FILE);
         this.zonesFile = ensureFile(ZONES_FILE);
+        this.economyFile = ensureFile(ECONOMY_FILE);
 
         this.messages = loadWithDefaults(messagesFile, MESSAGES_FILE);
         this.portals = loadWithDefaults(portalsFile, PORTALS_FILE);
         this.zones = loadWithDefaults(zonesFile, ZONES_FILE);
+        this.economy = loadWithDefaults(economyFile, ECONOMY_FILE);
     }
 
     public void reload() {
@@ -84,6 +89,10 @@ public final class ConfigManager {
         return zones;
     }
 
+    public FileConfiguration getEconomy() {
+        return economy;
+    }
+
     public void savePortals() {
         save(portals, portalsFile);
     }
@@ -94,6 +103,10 @@ public final class ConfigManager {
 
     public void saveMessages() {
         save(messages, messagesFile);
+    }
+
+    public void saveEconomy() {
+        save(economy, economyFile);
     }
 
     private void save(FileConfiguration cfg, File file) {

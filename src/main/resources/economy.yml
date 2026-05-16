@@ -1,0 +1,35 @@
+# CPSMP economy integration configuration.
+# This file controls the economy bridge used by economy-dependent features
+# (e.g. the upcoming Auction House). The actual money is always held by
+# the provider plugin (Vault + an economy plugin such as EssentialsX).
+# See DEPENDENCIES.md for an overview of supported providers.
+
+economy:
+  # Master switch. When false CPSMP behaves as if no provider is installed
+  # (NoEconomyBridge). Economy-dependent features will refuse to operate
+  # and inform players via the German messages in messages.yml.
+  enabled: true
+
+  # Which provider family CPSMP should prefer. Currently supported:
+  #   "vault" - look up a Vault economy provider via the Bukkit services
+  #             manager (recommended; works with EssentialsX, CMI,
+  #             TheNewEconomy via Vault hook, XConomy, GemsEconomy, ...).
+  # "reserve" is reserved for a future Reserve API bridge.
+  preferred-provider: "vault"
+
+  # Whether economy-gated features must hard-require an economy provider.
+  # Currently informational; once the Auction House lands it will refuse
+  # to enable if this is true and no provider is available.
+  require-economy-for-auction-house: true
+
+  # How currency amounts are rendered to players:
+  #   "provider" - delegate to the provider's own format() (recommended)
+  #   "fallback" - always use the fallback symbol below
+  currency-format-mode: "provider"
+
+  # Used when no provider is available or currency-format-mode is "fallback".
+  fallback-currency-symbol: "$"
+
+  # Extra logging for the economy bridge selection and per-transaction
+  # diagnostics. Off by default to keep startup logs quiet.
+  debug: false

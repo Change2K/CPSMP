@@ -171,6 +171,14 @@ public final class AdminCommand implements CommandExecutor, TabCompleter {
                 "platform", plugin.getServerCompatibility().getServerFlavor(),
                 "backend", plugin.getTeleportAdapter().name()
         ));
+        // Economy line: shows the active bridge type (None/Vault/Reserve/Custom)
+        // and the resolved provider name (e.g. "EssentialsX", "None").
+        de.deinserver.cpsmp.economy.EconomyBridge bridge =
+                plugin.getEconomyManager().getBridge();
+        messages.sendPrefixed(sender, "admin.info-economy", Map.of(
+                "bridge", bridge.providerType().name(),
+                "provider", bridge.providerName()
+        ));
         return true;
     }
 

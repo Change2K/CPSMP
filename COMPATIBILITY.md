@@ -5,6 +5,10 @@ and what to keep in mind when updating the plugin for newer Paper/Minecraft
 releases. Player-facing copy is German and lives in `messages.yml`; all class
 names, config keys and code comments are intentionally English.
 
+For the full list of build/runtime dependencies and optional integrations
+(Vault and Vault-compatible economy providers), see
+[`DEPENDENCIES.md`](DEPENDENCIES.md).
+
 ## Supported platforms
 
 | Platform | Support level | Notes |
@@ -110,3 +114,6 @@ still applies to everyone else.
   the `BukkitTeleportAdapter`.
 - **V1 feature scope is frozen.** Auction House, Homes, TPA and Claims are
   planned for later versions and must not be added in V1.
+- **V2 economy foundation is in place but inert.** The `economy` package
+  ships a Vault bridge + null-object fallback but no economy-gated
+  features are wired up yet; see [`DEPENDENCIES.md`](DEPENDENCIES.md).

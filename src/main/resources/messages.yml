@@ -67,3 +67,21 @@ admin:
   info-portals: "<gray>Portale: <yellow>{count}</yellow> aktiv</gray>"
   info-zones: "<gray>Zonen: <yellow>Gefahr={danger}</yellow>, <yellow>Attack={attack}</yellow></gray>"
   info-platform: "<gray>Plattform: <yellow>{platform}</yellow> <dark_gray>|</dark_gray> Teleport-Backend: <yellow>{backend}</yellow></gray>"
+  info-economy: "<gray>Economy: <yellow>{bridge}</yellow> <dark_gray>|</dark_gray> Provider: <yellow>{provider}</yellow></gray>"
+
+economy:
+  # Logged at startup when a provider was detected.
+  detected: "<green>Economy-System erkannt: <yellow>{provider}</yellow></green>"
+  # Logged at startup when no provider is available.
+  none: "<gray>Kein Economy-System gefunden.</gray>"
+  features-disabled: "<gray>Economy-Funktionen wurden deaktiviert.</gray>"
+  disabled-in-config: "<gray>Economy-Integration ist in der Konfiguration deaktiviert.</gray>"
+  vault-not-installed: "<gray>Vault ist nicht installiert.</gray>"
+  vault-no-provider: "<gray>Vault gefunden, aber kein Economy-Provider registriert.</gray>"
+  # Shown to players who try to use an economy-gated feature without a provider.
+  unavailable: "<red>Diese Funktion benoetigt ein Economy-System.</red>"
+  required: "<red>Diese Funktion benoetigt ein Economy-System.</red>"
+  insufficient-funds: "<red>Du hast nicht genug Geld.</red>"
+  invalid-amount: "<red>Ungueltiger Betrag.</red>"
+  transaction-failed: "<red>Transaktion fehlgeschlagen.</red>"
+  transaction-ok: "<green>Transaktion erfolgreich.</green>"
