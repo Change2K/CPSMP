@@ -45,6 +45,9 @@ public final class RTPService {
         this.allowedWorlds = plugin.getConfig().getStringList("rtp.allowed-worlds");
         Set<Material> set = new HashSet<>();
         for (String name : plugin.getConfig().getStringList("rtp.unsafe-blocks")) {
+            // Material.valueOf may fail when Mojang renames or removes a
+            // material in a future Minecraft version; we log and skip rather
+            // than fail to enable the plugin. Admins should update config.yml.
             try {
                 set.add(Material.valueOf(name.toUpperCase()));
             } catch (IllegalArgumentException ex) {
@@ -52,6 +55,9 @@ public final class RTPService {
             }
         }
         // Always treat fluids and air-likes as unsafe even if missing from config.
+        // These enum constants have been stable for many Minecraft versions; if
+        // any of them are ever removed upstream the plugin will fail to load
+        // and the constant references will need to be updated here.
         set.add(Material.LAVA);
         set.add(Material.WATER);
         set.add(Material.VOID_AIR);

@@ -9,6 +9,11 @@
 #   smp_rtp
 #   smp_to_danger_zone
 #   smp_to_attack_zone
+#
+# "sound" and "particles" accept either the legacy enum name
+# (e.g. "BLOCK_BEACON_ACTIVATE", "PORTAL") or a namespaced key
+# (e.g. "minecraft:block.beacon.activate", "minecraft:portal"). The
+# namespaced form is more forward-compatible across Paper updates.
 
 portals:
   lobby_to_smp:

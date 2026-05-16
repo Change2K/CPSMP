@@ -16,6 +16,18 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.source>21</maven.compiler.source>
         <maven.compiler.target>21</maven.compiler.target>
+
+        <!--
+            Paper API baseline. CPSMP is developed against this version and
+            best-effort tested on newer Paper releases. To target a newer
+            Paper, bump this property only and re-test:
+                <paper.api.version>1.21.X-R0.1-SNAPSHOT</paper.api.version>
+            Future Minecraft updates may also raise the required Java
+            version - bump <java.version> in lockstep when that happens.
+            See COMPATIBILITY.md.
+        -->
+        <paper.api.version>1.21.4-R0.1-SNAPSHOT</paper.api.version>
+        <java.version>21</java.version>
     </properties>
 
     <repositories>
@@ -29,7 +41,7 @@
         <dependency>
             <groupId>io.papermc.paper</groupId>
             <artifactId>paper-api</artifactId>
-            <version>1.21.4-R0.1-SNAPSHOT</version>
+            <version>${paper.api.version}</version>
             <scope>provided</scope>
         </dependency>
     </dependencies>
@@ -48,7 +60,7 @@
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>3.13.0</version>
                 <configuration>
-                    <release>21</release>
+                    <release>${java.version}</release>
                 </configuration>
             </plugin>
         </plugins>

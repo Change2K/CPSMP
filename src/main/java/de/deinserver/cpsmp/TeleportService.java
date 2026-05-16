@@ -1,5 +1,6 @@
 package de.deinserver.cpsmp;
 
+import de.deinserver.cpsmp.compat.RegistryLookup;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Sound;
@@ -22,7 +23,7 @@ import java.util.UUID;
 import java.util.function.Consumer;
 
 /**
- * Delayed-teleport pipeline used by both /spawn and /rtp. The service
+ * Delayed-teleport pipeline used by /smpspawn and /rtp. The service
  * - shows a German actionbar countdown,
  * - cancels the teleport on movement (configurable threshold),
  * - cancels the teleport on damage (configurable),
@@ -153,11 +154,11 @@ public final class TeleportService implements Listener {
         String soundName = plugin.getConfig().getString("teleport.success-sound", "ENTITY_ENDERMAN_TELEPORT");
         float volume = (float) plugin.getConfig().getDouble("teleport.success-sound-volume", 0.7D);
         float pitch = (float) plugin.getConfig().getDouble("teleport.success-sound-pitch", 1.2D);
-        try {
-            Sound sound = Sound.valueOf(soundName);
+        // RegistryLookup accepts both legacy enum names and namespaced keys,
+        // so the config stays forward-compatible across Paper updates.
+        Sound sound = RegistryLookup.sound(soundName);
+        if (sound != null) {
             player.playSound(player.getLocation(), sound, volume, pitch);
-        } catch (IllegalArgumentException ignored) {
-            // Unknown sound name - intentionally silent to avoid console spam.
         }
     }
 

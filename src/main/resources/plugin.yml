@@ -1,16 +1,19 @@
 name: CPSMP
 version: '${project.version}'
 main: de.deinserver.cpsmp.CPSMPPlugin
+# api-version is the Minecraft minor that CPSMP targets. Paper/Spigot accept
+# any 1.21.x server with this value. When migrating to a newer Minecraft
+# major.minor, bump this and the paper.api.version in pom.xml together and
+# re-test. See COMPATIBILITY.md.
 api-version: '1.21'
 author: deinserver
 description: Premium SMP foundation plugin (V1).
 load: POSTWORLD
 
 commands:
-  spawn:
-    description: Teleportiere dich zum SMP-Spawn.
-    usage: /spawn
-    permission: cpsmp.spawn
+  # /spawn is intentionally NOT registered by CPSMP. The /spawn command is
+  # left free for other plugins to claim. CPSMP only owns /smpspawn for
+  # teleporting to the configured SMP spawn point.
   smpspawn:
     description: Teleportiere dich zum SMP-Spawn.
     usage: /smpspawn
@@ -27,7 +30,7 @@ commands:
 
 permissions:
   cpsmp.spawn:
-    description: Erlaubt /spawn und /smpspawn.
+    description: Erlaubt /smpspawn.
     default: true
   cpsmp.rtp:
     description: Erlaubt /rtp.

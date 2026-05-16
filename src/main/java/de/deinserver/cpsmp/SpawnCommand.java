@@ -8,9 +8,12 @@ import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 
 /**
- * Handles both {@code /spawn} and {@code /smpspawn}. Both behave identically:
- * teleport the player to the configured SMP spawn through the standard
- * {@link TeleportService} pipeline (delay + cancel-on-move + cancel-on-damage).
+ * Handles {@code /smpspawn}: teleports the player to the configured SMP
+ * spawn through the standard {@link TeleportService} pipeline (delay +
+ * cancel-on-move + cancel-on-damage).
+ *
+ * <p>Note: CPSMP intentionally does not register {@code /spawn}. That
+ * command name is left free for other plugins on the network.
  */
 public final class SpawnCommand implements CommandExecutor {
 

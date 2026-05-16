@@ -89,6 +89,11 @@ public final class BukkitTeleportAdapter implements TeleportAdapter {
      * Runs the task on the main thread. If we are already on the main
      * thread the task executes inline so callers see the same one-tick
      * semantics regardless of where they invoked from.
+     *
+     * <p>Forward-compat note: {@link Bukkit#isPrimaryThread()} and the
+     * Bukkit scheduler are non-Folia constructs. CPSMP is not designed for
+     * Folia; supporting region-threaded servers would require migrating to
+     * {@code RegionScheduler} / {@code GlobalRegionScheduler}.
      */
     private void runOnMain(Runnable task) {
         if (Bukkit.isPrimaryThread()) {

@@ -8,13 +8,16 @@ settings:
   locale: "de_DE"
 
 teleport:
-  # Delay before /spawn /smpspawn /rtp teleports complete (seconds).
+  # Delay before /smpspawn /rtp teleports complete (seconds).
   delay-seconds: 3
   # Cancel teleport if the player moves more than this many blocks horizontally.
   move-threshold: 0.35
   # Cancel teleport if the player takes any damage.
   cancel-on-damage: true
-  # Sound played on successful teleport.
+  # Sound played on successful teleport. Accepts either the legacy enum
+  # name (e.g. "ENTITY_ENDERMAN_TELEPORT") or a namespaced key
+  # (e.g. "minecraft:entity.enderman.teleport"). The namespaced form is
+  # the more forward-compatible choice for newer Paper versions.
   success-sound: "ENTITY_ENDERMAN_TELEPORT"
   success-sound-volume: 0.7
   success-sound-pitch: 1.2

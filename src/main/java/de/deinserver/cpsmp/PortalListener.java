@@ -1,5 +1,6 @@
 package de.deinserver.cpsmp;
 
+import de.deinserver.cpsmp.compat.RegistryLookup;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Particle;
@@ -125,25 +126,22 @@ public final class PortalListener implements Listener {
     }
 
     private void playPortalSound(Player player, Portal portal) {
-        String soundName = portal.getSound();
-        if (soundName == null || soundName.isBlank()) return;
-        try {
-            Sound sound = Sound.valueOf(soundName);
+        // RegistryLookup accepts both legacy enum names ("BLOCK_BEACON_ACTIVATE")
+        // and namespaced keys ("minecraft:block.beacon.activate") so portal
+        // configs survive Sound enum reshuffles in newer Paper versions.
+        Sound sound = RegistryLookup.sound(portal.getSound());
+        if (sound != null) {
             player.playSound(player.getLocation(), sound, 0.7F, 1.0F);
-        } catch (IllegalArgumentException ignored) {
-            // Unknown sound name - intentionally silent.
         }
     }
 
     private void playPortalParticles(Player player, Portal portal) {
-        String particleName = portal.getParticles();
-        if (particleName == null || particleName.isBlank()) return;
-        try {
-            Particle particle = Particle.valueOf(particleName);
+        // Same forward-compat treatment for particle identifiers; the Particle
+        // enum has historically been renamed across Minecraft versions.
+        Particle particle = RegistryLookup.particle(portal.getParticles());
+        if (particle != null) {
             player.getWorld().spawnParticle(particle, player.getLocation().add(0, 1, 0), 30,
                     0.4, 0.6, 0.4, 0.01);
-        } catch (IllegalArgumentException ignored) {
-            // Unknown particle name - intentionally silent.
         }
     }
 

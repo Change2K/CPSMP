@@ -72,7 +72,9 @@ public final class CPSMPPlugin extends JavaPlugin {
         this.zoneListener = new ZoneListener(this);
         this.zoneListener.register();
 
-        registerCommand("spawn", new SpawnCommand(this));
+        // /spawn is intentionally NOT registered: the bare /spawn name is
+        // reserved for another plugin on the network. CPSMP exposes only
+        // /smpspawn for its own spawn teleport.
         registerCommand("smpspawn", new SpawnCommand(this));
         registerCommand("rtp", new RTPCommand(this));
         AdminCommand adminCommand = new AdminCommand(this);
