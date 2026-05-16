@@ -28,8 +28,11 @@ import java.util.function.Consumer;
  * - cancels the teleport on damage (configurable),
  * - plays a sound and dispatches optional success / cancel callbacks once done.
  *
- * <p>All teleports use Paper's {@code teleportAsync} so chunks load safely
- * without stalling the main thread.
+ * <p>The actual teleport is delegated to the active
+ * {@link de.deinserver.cpsmp.compat.TeleportAdapter}. On Paper that uses
+ * {@code teleportAsync} so chunks load without stalling the main thread;
+ * on Spigot/CraftBukkit it falls back to a main-thread sync teleport with
+ * the destination chunk pre-loaded.
  */
 public final class TeleportService implements Listener {
 
@@ -126,20 +129,24 @@ public final class TeleportService implements Listener {
     }
 
     private void performTeleport(Player player, Location destination, @Nullable Consumer<Player> onSuccess) {
-        player.teleportAsync(destination, PlayerTeleportEvent.TeleportCause.PLUGIN).thenAccept(success -> {
-            if (!Boolean.TRUE.equals(success)) {
-                return;
-            }
-            Bukkit.getScheduler().runTask(plugin, () -> {
-                if (!player.isOnline()) {
-                    return;
-                }
-                playSuccessSound(player);
-                if (onSuccess != null) {
-                    onSuccess.accept(player);
-                }
-            });
-        });
+        plugin.getTeleportAdapter()
+                .teleport(player, destination, PlayerTeleportEvent.TeleportCause.PLUGIN)
+                .thenAccept(success -> {
+                    if (!Boolean.TRUE.equals(success)) {
+                        return;
+                    }
+                    // Paper may complete the future on a worker thread; always
+                    // hop back to the main thread before touching the Bukkit API.
+                    Bukkit.getScheduler().runTask(plugin, () -> {
+                        if (!player.isOnline()) {
+                            return;
+                        }
+                        playSuccessSound(player);
+                        if (onSuccess != null) {
+                            onSuccess.accept(player);
+                        }
+                    });
+                });
     }
 
     private void playSuccessSound(Player player) {

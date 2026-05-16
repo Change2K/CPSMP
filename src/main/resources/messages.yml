@@ -66,3 +66,4 @@ admin:
   info-spawn: "<gray>SMP-Spawn: <yellow>{state}</yellow></gray>"
   info-portals: "<gray>Portale: <yellow>{count}</yellow> aktiv</gray>"
   info-zones: "<gray>Zonen: <yellow>Gefahr={danger}</yellow>, <yellow>Attack={attack}</yellow></gray>"
+  info-platform: "<gray>Plattform: <yellow>{platform}</yellow> <dark_gray>|</dark_gray> Teleport-Backend: <yellow>{backend}</yellow></gray>"

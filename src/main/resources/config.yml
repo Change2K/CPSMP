@@ -34,6 +34,8 @@ spawn:
 
 rtp:
   # Cooldown for /rtp (seconds).
+  # OP players and holders of the permission "cpsmp.rtp.bypasscooldown"
+  # ignore this cooldown entirely (also applies to the smp_rtp portal).
   cooldown-seconds: 120
   # Allowed worlds for /rtp. Any other world rejects the command.
   allowed-worlds:

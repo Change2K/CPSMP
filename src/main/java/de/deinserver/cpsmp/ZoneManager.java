@@ -131,19 +131,23 @@ public final class ZoneManager {
             return;
         }
         long cooldownMs = plugin.getConfig().getLong("zones.enter-message-cooldown-ms", 8000L);
-        player.teleportAsync(spawn, PlayerTeleportEvent.TeleportCause.PLUGIN).thenAccept(success -> {
-            if (!Boolean.TRUE.equals(success)) return;
-            Bukkit.getScheduler().runTask(plugin, () -> {
-                if (!player.isOnline()) return;
-                // Suppress the redundant "world-change" entry title that ZoneListener would otherwise fire.
-                plugin.getCooldowns().set("zone_entry", player.getUniqueId(), cooldownMs);
-                plugin.getMessageManager().sendTitle(player,
-                        "zones." + kind.key + ".enter-title",
-                        "zones." + kind.key + ".enter-subtitle");
-                plugin.getMessageManager().sendActionBar(player,
-                        "zones." + kind.key + ".enter-actionbar");
-            });
-        });
+        plugin.getTeleportAdapter()
+                .teleport(player, spawn, PlayerTeleportEvent.TeleportCause.PLUGIN)
+                .thenAccept(success -> {
+                    if (!Boolean.TRUE.equals(success)) return;
+                    // The adapter may complete on a worker thread (Paper);
+                    // hop back to the main thread before any Bukkit calls.
+                    Bukkit.getScheduler().runTask(plugin, () -> {
+                        if (!player.isOnline()) return;
+                        // Suppress the redundant "world-change" entry title that ZoneListener would otherwise fire.
+                        plugin.getCooldowns().set("zone_entry", player.getUniqueId(), cooldownMs);
+                        plugin.getMessageManager().sendTitle(player,
+                                "zones." + kind.key + ".enter-title",
+                                "zones." + kind.key + ".enter-subtitle");
+                        plugin.getMessageManager().sendActionBar(player,
+                                "zones." + kind.key + ".enter-actionbar");
+                    });
+                });
     }
 
     /**

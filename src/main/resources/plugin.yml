@@ -32,6 +32,9 @@ permissions:
   cpsmp.rtp:
     description: Erlaubt /rtp.
     default: true
+  cpsmp.rtp.bypasscooldown:
+    description: Erlaubt das Ueberspringen des /rtp-Cooldowns.
+    default: op
   cpsmp.portal.use:
     description: Erlaubt Portalbenutzung.
     default: true
@@ -46,6 +49,7 @@ permissions:
     default: op
     children:
       cpsmp.reload: true
+      cpsmp.rtp.bypasscooldown: true
   cpsmp.reload:
     description: Erlaubt das Neuladen der Konfiguration.
     default: op

@@ -150,8 +150,12 @@ public final class AdminCommand implements CommandExecutor, TabCompleter {
 
     private boolean handleInfo(CommandSender sender) {
         MessageManager messages = plugin.getMessageManager();
+        // Plugin version goes through ServerCompatibility so we use Paper's
+        // PluginMeta when present and fall back to PluginDescriptionFile on
+        // Spigot/CraftBukkit.
+        String version = plugin.getServerCompatibility().getPluginVersion(plugin);
         messages.sendPrefixed(sender, "admin.info-header",
-                Map.of("version", plugin.getPluginMeta().getVersion()));
+                Map.of("version", version));
         Location spawn = plugin.resolveSpawnLocation();
         messages.sendPrefixed(sender, "admin.info-spawn",
                 Map.of("state", spawn != null ? "OK" : "NICHT GESETZT"));
@@ -162,6 +166,10 @@ public final class AdminCommand implements CommandExecutor, TabCompleter {
         messages.sendPrefixed(sender, "admin.info-zones", Map.of(
                 "danger", dangerOk ? "OK" : "OFFEN",
                 "attack", attackOk ? "OK" : "OFFEN"
+        ));
+        messages.sendPrefixed(sender, "admin.info-platform", Map.of(
+                "platform", plugin.getServerCompatibility().getServerFlavor(),
+                "backend", plugin.getTeleportAdapter().name()
         ));
         return true;
     }

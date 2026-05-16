@@ -1,5 +1,9 @@
 package de.deinserver.cpsmp;
 
+import de.deinserver.cpsmp.compat.BukkitTeleportAdapter;
+import de.deinserver.cpsmp.compat.PaperTeleportAdapter;
+import de.deinserver.cpsmp.compat.ServerCompatibility;
+import de.deinserver.cpsmp.compat.TeleportAdapter;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
@@ -22,6 +26,8 @@ public final class CPSMPPlugin extends JavaPlugin {
     private MessageManager messageManager;
     private CooldownManager cooldowns;
 
+    private ServerCompatibility serverCompatibility;
+    private TeleportAdapter teleportAdapter;
     private TeleportService teleportService;
     private RTPService rtpService;
     private PortalManager portalManager;
@@ -38,6 +44,15 @@ public final class CPSMPPlugin extends JavaPlugin {
         this.messageManager.reload();
 
         this.cooldowns = new CooldownManager();
+
+        // Detect platform capabilities once and pick the appropriate teleport
+        // backend. Paper is preferred; Spigot/CraftBukkit use the sync fallback.
+        this.serverCompatibility = ServerCompatibility.detect(getLogger());
+        this.teleportAdapter = (serverCompatibility.hasTeleportAsync()
+                && serverCompatibility.hasChunkAtAsync())
+                ? new PaperTeleportAdapter()
+                : new BukkitTeleportAdapter(this);
+        getLogger().info("Teleport backend: " + teleportAdapter.name());
 
         this.teleportService = new TeleportService(this);
         this.teleportService.register();
@@ -143,4 +158,6 @@ public final class CPSMPPlugin extends JavaPlugin {
     public RTPService getRtpService() { return rtpService; }
     public PortalManager getPortalManager() { return portalManager; }
     public ZoneManager getZoneManager() { return zoneManager; }
+    public ServerCompatibility getServerCompatibility() { return serverCompatibility; }
+    public TeleportAdapter getTeleportAdapter() { return teleportAdapter; }
 }

@@ -113,7 +113,10 @@ public final class PortalListener implements Listener {
                     plugin.getMessageManager().sendPrefixed(player, "portal.target-missing");
                     return;
                 }
-                player.teleportAsync(target, PlayerTeleportEvent.TeleportCause.PLUGIN);
+                // Delegated to the active TeleportAdapter so portal teleports
+                // work identically on Paper (async) and Spigot (sync fallback).
+                plugin.getTeleportAdapter()
+                        .teleport(player, target, PlayerTeleportEvent.TeleportCause.PLUGIN);
             }
             case RTP -> plugin.getRtpService().runRandomTeleport(player);
             case ZONE_DANGER -> plugin.getZoneManager().teleportToZone(player, ZoneManager.ZoneKind.DANGER);

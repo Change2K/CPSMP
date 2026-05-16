@@ -6,7 +6,6 @@ import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
-import org.bukkit.event.player.PlayerTeleportEvent;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -20,13 +19,17 @@ import java.util.function.Consumer;
 
 /**
  * Picks a random safe surface location inside the configured radius and
- * teleports the player there. Search is async-friendly: chunks are loaded
- * through {@code getChunkAtAsync}, and the player is teleported with
- * {@code teleportAsync} once a safe candidate is found.
+ * teleports the player there. Chunk loading goes through the active
+ * {@link de.deinserver.cpsmp.compat.TeleportAdapter}, so the search is
+ * async on Paper and falls back to safe main-thread loads on Spigot.
+ * The actual teleport reuses the standard delayed pipeline from
+ * {@link TeleportService}.
  */
 public final class RTPService {
 
     private static final String COOLDOWN_KEY = "rtp";
+    /** Permission node that lets a player skip the /rtp cooldown. OP bypasses too. */
+    private static final String BYPASS_PERMISSION = "cpsmp.rtp.bypasscooldown";
 
     private final CPSMPPlugin plugin;
     /** Cached set of unsafe block types (rebuilt on reload). */
@@ -56,8 +59,12 @@ public final class RTPService {
     }
 
     /**
-     * Entry point for both /rtp and RTP portals. Respects cooldown, allowed
-     * worlds, and shows German feedback throughout.
+     * Entry point for both /rtp and the {@code smp_rtp} portal. Respects
+     * cooldown, allowed worlds, and shows German feedback throughout.
+     *
+     * <p>Players with {@link #BYPASS_PERMISSION} or OP status skip the
+     * cooldown check entirely; no cooldown is recorded for them either, so
+     * subsequent calls also remain instant.
      */
     public void runRandomTeleport(Player player) {
         World world = player.getWorld();
@@ -66,11 +73,14 @@ public final class RTPService {
             return;
         }
 
-        long remaining = plugin.getCooldowns().remainingSeconds(COOLDOWN_KEY, player.getUniqueId());
-        if (remaining > 0) {
-            plugin.getMessageManager().sendPrefixed(player, "general.cooldown",
-                    Map.of("time", Long.toString(remaining)));
-            return;
+        boolean bypass = hasRtpCooldownBypass(player);
+        if (!bypass) {
+            long remaining = plugin.getCooldowns().remainingSeconds(COOLDOWN_KEY, player.getUniqueId());
+            if (remaining > 0) {
+                plugin.getMessageManager().sendPrefixed(player, "general.cooldown",
+                        Map.of("time", Long.toString(remaining)));
+                return;
+            }
         }
 
         plugin.getMessageManager().sendActionBar(player, "rtp.searching-actionbar");
@@ -84,23 +94,41 @@ public final class RTPService {
                 return;
             }
             plugin.getMessageManager().sendActionBar(player, "rtp.found-actionbar");
-            startDelayedTeleport(player, found);
+            startDelayedTeleport(player, found, bypass);
         }));
     }
 
-    private void startDelayedTeleport(Player player, Location destination) {
-        long cooldownMs = plugin.getConfig().getLong("rtp.cooldown-seconds", 120L) * 1000L;
-        plugin.getCooldowns().set(COOLDOWN_KEY, player.getUniqueId(), cooldownMs);
+    /**
+     * @param bypass when true the per-player cooldown is neither set after
+     *               start nor cleared on cancel; used for OP and players with
+     *               {@link #BYPASS_PERMISSION}.
+     */
+    private void startDelayedTeleport(Player player, Location destination, boolean bypass) {
+        if (!bypass) {
+            long cooldownMs = plugin.getConfig().getLong("rtp.cooldown-seconds", 120L) * 1000L;
+            plugin.getCooldowns().set(COOLDOWN_KEY, player.getUniqueId(), cooldownMs);
+        }
 
         Consumer<Player> onSuccess = success -> {
             plugin.getMessageManager().sendTitle(success, "rtp.success-title", "rtp.success-subtitle");
         };
         Consumer<Player> onCancel = cancelled -> {
-            // Cancellation should free the cooldown - players who never actually moved.
-            plugin.getCooldowns().clear(COOLDOWN_KEY, cancelled.getUniqueId());
+            if (!bypass) {
+                // Cancellation should free the cooldown - players who never actually moved.
+                plugin.getCooldowns().clear(COOLDOWN_KEY, cancelled.getUniqueId());
+            }
         };
 
         plugin.getTeleportService().requestTeleport(player, destination, onSuccess, onCancel);
+    }
+
+    /**
+     * Returns true if the player should skip the /rtp cooldown. Server
+     * operators always bypass; otherwise the {@link #BYPASS_PERMISSION}
+     * permission node is required.
+     */
+    public boolean hasRtpCooldownBypass(Player player) {
+        return player.isOp() || player.hasPermission(BYPASS_PERMISSION);
     }
 
     /**
@@ -130,7 +158,10 @@ public final class RTPService {
         int[] xz = randomXZ(center.getBlockX(), center.getBlockZ(), minRadius, maxRadius);
         int chunkX = xz[0] >> 4;
         int chunkZ = xz[1] >> 4;
-        world.getChunkAtAsync(chunkX, chunkZ).thenAccept(chunk -> {
+        plugin.getTeleportAdapter().loadChunk(world, chunkX, chunkZ).thenAccept(chunk -> {
+            // The adapter future may complete on a worker thread (Paper) or on
+            // the main thread (Bukkit fallback). Either way, hop to the main
+            // thread before touching blocks.
             Bukkit.getScheduler().runTask(plugin, () -> {
                 Location candidate = pickFromColumn(world, xz[0], xz[1], useHighest);
                 if (candidate != null) {
