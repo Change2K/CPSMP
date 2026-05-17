@@ -469,6 +469,9 @@ public final class CpsmpTeleportSubsystem {
             return;
         }
         getBack(player.getUniqueId()).whenComplete((snap, ex) -> runSync(() -> {
+            if (!player.isOnline()) {
+                return;
+            }
             if (ex != null || snap == null) {
                 plugin.getMessageManager().sendPrefixed(player, "back.no-location");
                 return;

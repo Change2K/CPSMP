@@ -1,8 +1,8 @@
-# CPSMP manual test checklist (V3.0)
+# CPSMP manual test checklist (V3.0 / V3.1)
 
 Use this list before promoting a build to production. Player-facing strings are German (`messages.yml`); this document is English for operators.
 
-V3.0 adds **Homes**, **TPA**, optional **`/back`**, and `teleports.yml` (plus `teleports.db` when Homes or `/back` are enabled). `/spawn` remains **unregistered** by CPSMP.
+V3.0 adds **Homes**, **TPA**, optional **`/back`**, and `teleports.yml` (plus `teleports.db` when Homes or `/back` are enabled). V3.1 is a **hardening** release for those systems (no new gameplay). `/spawn` remains **unregistered** by CPSMP.
 
 ## Local server setup
 
@@ -40,6 +40,18 @@ Confirm `/spawn` is **not** registered by CPSMP (by design).
 - **World rules**: `teleports.yml` allow/block lists + optional CPSMP zone world integration.
 - **Command fallback**: if another plugin owns `/home`, verify `/cphome`; check console for `admin.log.command-conflict`.
 - **Admin**: `/cpsmpadmin homes info|delete|reload`.
+
+### Homes / TPA (V3.1 hardening)
+
+- **TPA accept**: decline paths (expired, sender offline, bad destination world, blocked world for mover or destination, mover in combat) must **remove** the pending request; sender should be able to send again after a fix. Successful accept still notifies both players before the teleport countdown.
+- **TPA + combat**: with combat tagging and `combat.block-tpa: true` in `teleports.yml`, put the **moving** player in combat and run `/tpaccept`; expect `tpa.teleport-combat` for both sides and no teleport.
+- **TPA + logout**: disconnect sender or target with a pending request; the other side should not keep a stale paired request (cancel / expiry messaging as designed).
+- **TPA + reload**: `/cpsmpadmin reload` clears pending TPA; only **one** expiry ticker runs after reload (watch logs / no duplicate “expired” spam).
+- **Tab completion**: player **without** `cpsmp.tpa` gets empty `/tpa <tab>`; with permission, sees online player names (respect `canSee`). Same for `/tpahere` vs `cpsmp.tpa.here`.
+- **Homes GUI**: with GUI open, **Q (drop)** and **swap hands** must not move items; shift-click / number keys on the top inventory should remain ineffective for CPSMP slots (parity with Auction GUI expectations).
+- **Delete confirm GUI**: only explicit confirm/cancel slots act; closing the inventory should not delete a home.
+- **`/back`**: if enabled, start a delayed teleport, disconnect before completion; no errors on reconnect. Async DB read completes when player is offline → no messages or teleport applied (`player.isOnline()` guard).
+- **Persistence**: restart server and `/cpsmpadmin reload` — home rows in SQLite unchanged; TPA only lives in memory across reload.
 
 ## Inventory transfer (V3.0)
 
@@ -111,8 +123,9 @@ Confirm `/spawn` is **not** registered by CPSMP (by design).
 
 1. `/cpsmpadmin reload` (or `/ah admin reload` — same full reload path as of V2.6).
 2. Confirm **one** portal scan task (no duplicate teleport triggers / doubled polling).
-3. Auction expiry: still a single periodic pass (hot reload restarts the task).
-4. Open Auction GUI before reload: inventory should close; reopening shows fresh config (rows, filler, thresholds).
+3. Confirm **one** TPA expiry task (no duplicate expirations per second).
+4. Auction expiry: still a single periodic pass (hot reload restarts the task).
+5. Open Auction GUI before reload: inventory should close; reopening shows fresh config (rows, filler, thresholds).
 
 ## Permission test
 

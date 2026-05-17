@@ -10,6 +10,8 @@ import org.bukkit.event.inventory.InventoryAction;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
+import org.bukkit.event.player.PlayerDropItemEvent;
+import org.bukkit.event.player.PlayerSwapHandItemsEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
@@ -112,6 +114,31 @@ public final class HomesGuiClickListener implements Listener {
                 event.setCancelled(true);
                 return;
             }
+        }
+    }
+
+    private boolean hasHomesGuiOpen(Player player) {
+        Inventory top = player.getOpenInventory().getTopInventory();
+        return top.getHolder() instanceof HomesGuiManager.HomesGuiSession;
+    }
+
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onDrop(PlayerDropItemEvent event) {
+        if (!(event.getPlayer() instanceof Player player)) {
+            return;
+        }
+        if (hasHomesGuiOpen(player)) {
+            event.setCancelled(true);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onSwapHands(PlayerSwapHandItemsEvent event) {
+        if (!(event.getPlayer() instanceof Player player)) {
+            return;
+        }
+        if (hasHomesGuiOpen(player)) {
+            event.setCancelled(true);
         }
     }
 

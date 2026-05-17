@@ -73,7 +73,7 @@ and skips opening `teleports.db` without affecting RTP, portals, or zones.
 | Feature scope | Required plugins |
 |---|---|
 | **CPSMP core** (spawn, RTP, portals, zones, admin) | **None** |
-| **V3.0 Homes / TPA / optional `/back`** | None; requires `teleports.yml`, optional SQLite (Paper `libraries:`). See `COMPATIBILITY.md` for inventory policy. |
+| **V3.0+ Homes / TPA / optional `/back`** | None; requires `teleports.yml`, optional SQLite (Paper `libraries:`). See `COMPATIBILITY.md` for inventory policy. V3.1 adds no new dependencies. |
 | **Auction House (V2.1)** - selling with `fees.listing-fee > 0` or `require-economy-for-auction-house: true` | A Vault-compatible economy setup (Vault + one provider) |
 | **Auction House (V2.1)** - selling with no fee and `require-economy-for-auction-house: false` | None |
 | **Auction House (V2.2)** - buying (`/ah buy`, including the offline-seller payout) | A Vault-compatible economy setup (Vault + one provider) - hard requirement; `/ah buy` refuses with `auction.economy-required` when no bridge is available |

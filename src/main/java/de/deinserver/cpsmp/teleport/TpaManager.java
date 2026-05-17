@@ -139,17 +139,20 @@ public final class TpaManager {
      * @param accepter the player who runs /tpaccept (always the target of TPA / HERE)
      */
     public void accept(Player accepter, TeleportConfig cfg) {
-        TpaRequest req = removeIncomingFor(accepter.getUniqueId());
+        TpaRequest req = peekIncoming(accepter.getUniqueId());
         if (req == null) {
             plugin.getMessageManager().sendPrefixed(accepter, "tpa.no-request");
             return;
         }
-        if (req.isExpired(System.currentTimeMillis())) {
+        long now = System.currentTimeMillis();
+        if (req.isExpired(now)) {
+            removeIncomingFor(accepter.getUniqueId());
             plugin.getMessageManager().sendPrefixed(accepter, "tpa.expired");
             return;
         }
         Player sender = req.senderPlayer();
         if (sender == null || !sender.isOnline()) {
+            removeIncomingFor(accepter.getUniqueId());
             plugin.getMessageManager().sendPrefixed(accepter, "tpa.player-not-found");
             return;
         }
@@ -164,22 +167,35 @@ public final class TpaManager {
             dest = sender.getLocation().clone();
         }
         if (dest.getWorld() == null) {
+            removeIncomingFor(accepter.getUniqueId());
             plugin.getMessageManager().sendPrefixed(accepter, "tpa.target-disabled-world");
             return;
         }
         CpsmpTeleportSubsystem sub = plugin.getTeleportSubsystem();
         if (sub == null) {
+            removeIncomingFor(accepter.getUniqueId());
+            plugin.getMessageManager().sendPrefixed(accepter, "tpa.subsystem-unavailable");
             return;
         }
         if (!sub.getTeleportConfig().canTpaToWorld(dest.getWorld().getName(), plugin)) {
+            removeIncomingFor(accepter.getUniqueId());
             plugin.getMessageManager().sendPrefixed(mover, "tpa.target-disabled-world");
             plugin.getMessageManager().sendPrefixed(accepter, "tpa.target-disabled-world");
             return;
         }
         if (!sub.getTeleportConfig().canTpaFromWorld(mover.getWorld().getName(), plugin)) {
+            removeIncomingFor(accepter.getUniqueId());
             plugin.getMessageManager().sendPrefixed(mover, "tpa.disabled-world");
             return;
         }
+        if (sub.isCombatBlockedForTpa(mover)) {
+            removeIncomingFor(accepter.getUniqueId());
+            plugin.getMessageManager().sendPrefixed(mover, "tpa.teleport-combat");
+            plugin.getMessageManager().sendPrefixed(accepter, "tpa.teleport-combat");
+            return;
+        }
+
+        removeIncomingFor(accepter.getUniqueId());
 
         plugin.getMessageManager().sendPrefixed(accepter, "tpa.accepted");
         plugin.getMessageManager().sendPrefixed(sender, "tpa.accepted-sender");

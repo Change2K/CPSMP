@@ -342,6 +342,7 @@ tpa:
   teleport-combat: "<red>Du kannst im Kampf keine TPA-Anfrage senden.</red>"
   feature-disabled: "<gray>TPA ist deaktiviert.</gray>"
   here-disabled: "<gray>/tpahere ist deaktiviert.</gray>"
+  subsystem-unavailable: "<red>Teleport-Subsystem voruebergehend nicht verfuegbar. Versuche es erneut.</red>"
 
 back:
   feature-disabled: "<gray>/back ist deaktiviert.</gray>"

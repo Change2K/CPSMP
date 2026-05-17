@@ -1,5 +1,6 @@
 package de.deinserver.cpsmp.teleport;
 
+import de.deinserver.cpsmp.CPSMPPlugin;
 import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
@@ -14,17 +15,36 @@ import java.util.Locale;
 
 public final class TeleportCommandsTabCompleter implements TabCompleter {
 
+    private final CPSMPPlugin plugin;
+
+    public TeleportCommandsTabCompleter(CPSMPPlugin plugin) {
+        this.plugin = plugin;
+    }
+
     @Override
     public @Nullable List<String> onTabComplete(@NotNull CommandSender sender, @NotNull Command command,
                                                   @NotNull String alias, @NotNull String[] args) {
-        String name = command.getName().toLowerCase(Locale.ROOT);
-        if (sender instanceof Player requester
-                && args.length == 1
-                && (name.equals("tpa") || name.equals("cptpa") || name.equals("tpahere")
-                || name.equals("cptpahere"))) {
-            return filterPlayerNames(requester, args[0]);
+        if (!(sender instanceof Player requester)) {
+            return List.of();
         }
-        return List.of();
+        String name = command.getName().toLowerCase(Locale.ROOT);
+        if (args.length != 1) {
+            return List.of();
+        }
+        boolean here = name.equals("tpahere") || name.equals("cptpahere");
+        boolean tpaCmd = name.equals("tpa") || name.equals("cptpa");
+        if (here) {
+            if (!requester.hasPermission(TeleportPermission.TPA_HERE)) {
+                return List.of();
+            }
+        } else if (tpaCmd) {
+            if (!requester.hasPermission(TeleportPermission.TPA_ROOT)) {
+                return List.of();
+            }
+        } else {
+            return List.of();
+        }
+        return filterPlayerNames(requester, args[0]);
     }
 
     private List<String> filterPlayerNames(Player requester, String prefix) {

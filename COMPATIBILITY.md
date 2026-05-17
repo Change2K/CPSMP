@@ -74,6 +74,7 @@ still applies to everyone else.
 ## V3.0 Homes, TPA, and inventories
 
 - **Homes / TPA / optional `/back`** use `teleports.yml`, German strings in `messages.yml`, and SQLite (`teleports.db` by default) for `player_homes` and `teleport_back_locations` when Homes or `/back` are enabled. Cooldown bypass uses `cpsmp.home.bypasscooldown`, `cpsmp.tpa.bypasscooldown`, or OP.
+- **V3.1 hardening** (same feature set): TPA accept uses validate-then-remove so a failed accept never drops the request silently; combat-at-accept clears the pending request and messages both sides; `/tpa` and `/tpahere` tab-complete only suggest online players when the sender has `cpsmp.tpa` / `cpsmp.tpa.here`; the Homes GUI cancels drop-key and offhand-swap while open (same exploit class as Auction GUI). Message key `tpa.subsystem-unavailable` covers the theoretical disabled-subsystem edge during `/tpaccept`.
 - **Command conflicts**: Bukkit resolves overlapping command names by plugin load order. CPSMP registers duplicate **`cp*`-prefixed** commands in `plugin.yml` (`/cphome`, `/cptpa`, …) as a stable fallback without unregistering other plugins' commands. Startup may log a German hint if a primary name is owned by another plugin (`messages.yml` → `admin.log.*`).
 - **Inventories**: CPSMP does not clear or migrate inventories on `/smpspawn`, `/rtp`, portals, zones, Homes, or TPA. If you use Multiverse-Inventories, PerWorldInventory, or similar, configure one shared group for your SMP gameplay worlds.
 
@@ -121,8 +122,7 @@ still applies to everyone else.
   `MessageManager` accordingly. This is out of scope for V1.
 - **Folia is not targeted.** Migrating would touch every scheduler call and
   the `BukkitTeleportAdapter`.
-- **Homes, TPA and Claims are still out of scope** and planned for later
-  versions.
+- **Claims** remain out of scope for the current release line.
 - **V2.3 Auction House adds the premium German GUI on top of the
   V2.1/V2.2 backend.** The new `auction.gui` package contains
   `AuctionGuiManager`, `AuctionGuiSession` (the `InventoryHolder` used

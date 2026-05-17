@@ -38,7 +38,7 @@ import org.jetbrains.annotations.Nullable;
  * persistent spawn write, global reload).
  *
  * <p>V3.0 adds Homes, TPA and optional /back via
- * {@link CpsmpTeleportSubsystem}. Claims remain out of scope.</p>
+ * {@link CpsmpTeleportSubsystem}; V3.1 hardens those paths. Claims remain out of scope.</p>
  */
 public final class CPSMPPlugin extends JavaPlugin {
 
@@ -118,7 +118,7 @@ public final class CPSMPPlugin extends JavaPlugin {
 
         this.teleportSubsystem = new CpsmpTeleportSubsystem(this);
         this.teleportSubsystem.enable();
-        TeleportCommandsTabCompleter teleportTab = new TeleportCommandsTabCompleter();
+        TeleportCommandsTabCompleter teleportTab = new TeleportCommandsTabCompleter(this);
         SetHomeCommand setHome = new SetHomeCommand(this);
         registerExecutorAndTab("sethome", setHome, teleportTab);
         registerExecutorAndTab("cpsethome", setHome, teleportTab);
@@ -175,7 +175,7 @@ public final class CPSMPPlugin extends JavaPlugin {
             ah.setTabCompleter(auctionCommand);
         }
 
-        getLogger().info("CPSMP V3.0 enabled.");
+        getLogger().info("CPSMP V3.1 enabled.");
     }
 
     @Override
@@ -208,7 +208,7 @@ public final class CPSMPPlugin extends JavaPlugin {
     }
 
     /**
-     * V3.0 Homes / TPA / back subsystem. Null only before {@link #onEnable()} finishes.
+     * V3.0+ Homes / TPA / back subsystem. Null only before {@link #onEnable()} finishes.
      */
     public @Nullable CpsmpTeleportSubsystem getTeleportSubsystem() {
         return teleportSubsystem;
