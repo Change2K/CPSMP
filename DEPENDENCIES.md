@@ -74,6 +74,7 @@ message and disables itself without taking the rest of CPSMP down.
 | **Auction House (V2.1)** - selling with no fee and `require-economy-for-auction-house: false` | None |
 | **Auction House (V2.2)** - buying (`/ah buy`, including the offline-seller payout) | A Vault-compatible economy setup (Vault + one provider) - hard requirement; `/ah buy` refuses with `auction.economy-required` when no bridge is available |
 | **Auction House (V2.2)** - browsing (`/ah browse`) | None |
+| **Auction House (V2.3)** - premium German GUI (`/ah` main hub, browse/listings/collect/confirm screens) | None beyond the backend tier above; the GUI is a thin presentation layer on top of the existing backend |
 
 ---
 
@@ -142,6 +143,17 @@ Listed in `plugin.yml`:
   Vault) accepts deposits keyed by an `OfflinePlayer` resolved from a
   UUID, so offline sellers receive their money on the next login the
   same way `/pay <name>` would deliver it.
+- The V2.3 Auction House GUI is implemented entirely with the public
+  Bukkit inventory API (`Bukkit.createInventory`, `InventoryHolder`,
+  `InventoryClickEvent`, `InventoryDragEvent`, `InventoryCloseEvent`,
+  `ItemMeta#displayName`, `ItemMeta#lore`). No NMS, no
+  `org.bukkit.craftbukkit.*`, no internal-package reflection. The
+  GUI uses Paper's `createInventory(Holder, int, Component)` overload
+  for rich titles; on Spigot the manager catches the missing-overload
+  error and falls back to the legacy `String` title overload after
+  serializing the title to plain text. If GUI creation fails for any
+  other reason, `/ah` cleanly falls back to the German text help so
+  no command path ever blocks on a missing API.
 
 ---
 

@@ -7,6 +7,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
@@ -43,6 +44,17 @@ public final class AuctionConfig {
     private final long expireCheckIntervalSeconds;
 
     private final int browsePageSize;
+
+    private final boolean guiEnabled;
+    private final int guiRowsMain;
+    private final int guiRowsBrowse;
+    private final int guiRowsListings;
+    private final int guiRowsCollect;
+    private final boolean guiRefreshAfterAction;
+    private final boolean guiConfirmationEnabled;
+    private final boolean guiFillerEnabled;
+    private final Material guiFillerMaterial;
+    private final String guiFillerName;
 
     private final boolean debug;
 
@@ -95,7 +107,33 @@ public final class AuctionConfig {
         int rawPageSize = cfg.getInt("browse.page-size", 8);
         this.browsePageSize = Math.max(3, Math.min(rawPageSize, 50));
 
+        // V2.3 GUI settings. Row counts are clamped to Bukkit's legal
+        // inventory sizes (1..6 rows = 9..54 slots). The main hub is
+        // capped at 3 rows because the Apple-like layout never needs
+        // more than five buttons.
+        this.guiEnabled = cfg.getBoolean("gui.enabled", true);
+        this.guiRowsMain = clampRows(cfg.getInt("gui.rows.main", 3), 1, 3);
+        this.guiRowsBrowse = clampRows(cfg.getInt("gui.rows.browse", 6), 3, 6);
+        this.guiRowsListings = clampRows(cfg.getInt("gui.rows.listings", 6), 3, 6);
+        this.guiRowsCollect = clampRows(cfg.getInt("gui.rows.collect", 6), 3, 6);
+        this.guiRefreshAfterAction = cfg.getBoolean("gui.refresh-after-action", true);
+        this.guiConfirmationEnabled = cfg.getBoolean("gui.confirmation.enabled", true);
+        this.guiFillerEnabled = cfg.getBoolean("gui.filler.enabled", true);
+        String fillerRaw = cfg.getString("gui.filler.material", "GRAY_STAINED_GLASS_PANE");
+        Material fillerResolved = Material.matchMaterial(fillerRaw != null ? fillerRaw.trim() : "");
+        if (fillerResolved == null || !fillerResolved.isItem()) {
+            logger.log(Level.WARNING, "Unknown gui.filler.material '" + fillerRaw
+                    + "', falling back to GRAY_STAINED_GLASS_PANE.");
+            fillerResolved = Material.GRAY_STAINED_GLASS_PANE;
+        }
+        this.guiFillerMaterial = fillerResolved;
+        this.guiFillerName = cfg.getString("gui.filler.name", " ");
+
         this.debug = cfg.getBoolean("debug", false);
+    }
+
+    private static int clampRows(int requested, int min, int max) {
+        return Math.max(min, Math.min(requested, max));
     }
 
     public boolean isEnabled() {
@@ -152,6 +190,46 @@ public final class AuctionConfig {
 
     public int getBrowsePageSize() {
         return browsePageSize;
+    }
+
+    public boolean isGuiEnabled() {
+        return guiEnabled;
+    }
+
+    public int getGuiRowsMain() {
+        return guiRowsMain;
+    }
+
+    public int getGuiRowsBrowse() {
+        return guiRowsBrowse;
+    }
+
+    public int getGuiRowsListings() {
+        return guiRowsListings;
+    }
+
+    public int getGuiRowsCollect() {
+        return guiRowsCollect;
+    }
+
+    public boolean isGuiRefreshAfterAction() {
+        return guiRefreshAfterAction;
+    }
+
+    public boolean isGuiConfirmationEnabled() {
+        return guiConfirmationEnabled;
+    }
+
+    public boolean isGuiFillerEnabled() {
+        return guiFillerEnabled;
+    }
+
+    public Material getGuiFillerMaterial() {
+        return guiFillerMaterial;
+    }
+
+    public String getGuiFillerName() {
+        return guiFillerName;
     }
 
     public boolean isDebug() {

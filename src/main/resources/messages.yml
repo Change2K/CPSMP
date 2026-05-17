@@ -183,3 +183,48 @@ auction:
   # Used by future expiry notifications (V2.2+). Already declared so
   # admins can translate / restyle the string today.
   expired-returned: "<gray>Dein Angebot ist abgelaufen. Verwende <yellow>/ah collect</yellow>, um das Item zurueckzuholen.</gray>"
+
+  # ----------------------------- V2.3: premium German GUI labels ----
+  # All strings below back the inventory GUI introduced in V2.3.
+  # Titles drive Bukkit.createInventory(..., Component title); button
+  # labels become ItemMeta#displayName; lore-* lines become item lore.
+  # Every string is full MiniMessage so admins can restyle freely.
+  gui:
+    main-title: "<gradient:#5BCEFA:#F5A9B8><bold>Auktionshaus</bold></gradient>"
+    browse-title: "<gradient:#5BCEFA:#F5A9B8><bold>Auktionen</bold></gradient>"
+    listings-title: "<gradient:#5BCEFA:#F5A9B8><bold>Meine Angebote</bold></gradient>"
+    collect-title: "<gradient:#5BCEFA:#F5A9B8><bold>Abholen</bold></gradient>"
+    confirm-title: "<gradient:#5BCEFA:#F5A9B8><bold>Kauf bestaetigen</bold></gradient>"
+
+    button-browse: "<white>Auktionen ansehen</white>"
+    button-listings: "<white>Meine Angebote</white>"
+    button-collect: "<white>Items abholen</white>"
+    button-info: "<white>Informationen</white>"
+    button-close: "<red>Schliessen</red>"
+    button-back: "<white>Zurueck</white>"
+    button-next-page: "<white>Naechste Seite</white>"
+    button-previous-page: "<white>Vorherige Seite</white>"
+    button-confirm-buy: "<green>Kaufen</green>"
+    button-cancel: "<red>Abbrechen</red>"
+    button-collect-all: "<white>Alles abholen</white>"
+
+    lore-price: "<gray>Preis: <yellow>{price}</yellow></gray>"
+    lore-seller: "<gray>Verkaeufer: <yellow>{seller}</yellow></gray>"
+    lore-expires: "<gray>Laeuft ab in: <yellow>{time}</yellow></gray>"
+    lore-click-buy: "<green>Klicke zum Kaufen</green>"
+    lore-click-cancel: "<red>Klicke zum Entfernen</red>"
+    lore-click-collect: "<green>Klicke zum Abholen</green>"
+    # Two lines rendered by the GUI when the viewer owns the listing
+    # and allow-own-purchase is false. Keep them as a single MiniMessage
+    # blob; the GUI splits visually by rendering line-by-line.
+    lore-own-listing: "<gray>Dein Angebot - du kannst es nicht selbst kaufen.</gray>"
+
+    no-auctions: "<gray>Keine aktiven Auktionen gefunden.</gray>"
+    no-listings: "<gray>Du hast keine aktiven Angebote.</gray>"
+    no-collect-items: "<gray>Du hast keine Items zum Abholen.</gray>"
+
+    page-indicator: "<gray>Seite <yellow>{page}</yellow>/<yellow>{pages}</yellow></gray>"
+
+    stale-listing: "<red>Dieses Angebot ist nicht mehr verfuegbar.</red>"
+    action-complete: "<green>Aktion abgeschlossen.</green>"
+    action-failed: "<red>Aktion fehlgeschlagen.</red>"

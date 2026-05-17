@@ -123,6 +123,16 @@ public final class MessageManager {
     }
 
     /**
+     * Returns the shared {@link MiniMessage} instance. Used by the V2.3
+     * Auction House GUI for ad-hoc parsing of free-form admin-supplied
+     * strings (e.g. {@code gui.filler.name}) that aren't keyed in
+     * {@code messages.yml}.
+     */
+    public MiniMessage miniMessage() {
+        return miniMessage;
+    }
+
+    /**
      * Serializes a message to plain text with all MiniMessage tags stripped.
      * Used for console / logger output where colour codes would just be
      * noise, while still letting admins translate the strings centrally

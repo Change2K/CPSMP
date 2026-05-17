@@ -114,14 +114,19 @@ still applies to everyone else.
   the `BukkitTeleportAdapter`.
 - **Homes, TPA and Claims are still out of scope** and planned for later
   versions.
-- **V2.2 Auction House backend covers sell, cancel, collect, expiry,
-  browse and buy.** The `auction` package ships the data model, an
-  SQLite-backed `AuctionStorage`, an idempotent `AuctionExpiryService`,
-  the dupe-safe sell / cancel / collect flows, the text-only
-  `/ah browse` paginator, and the race-safe `/ah buy` flow with sale
-  tax and inventory-full fallback. The premium German GUI, bidding,
-  search and sort all land in later releases. The Auction House talks
-  to the existing `EconomyBridge` only and never imports a specific
+- **V2.3 Auction House adds the premium German GUI on top of the
+  V2.1/V2.2 backend.** The new `auction.gui` package contains
+  `AuctionGuiManager`, `AuctionGuiSession` (the `InventoryHolder` used
+  to scope all click handling), `AuctionGuiItemFactory` (clone-only
+  display items so the stored `ItemStack`s are never exposed),
+  `AuctionGuiClickListener` (cancels every click in our inventories
+  and accepts only LEFT/RIGHT/MIDDLE click types), and a thin set of
+  screen builders for Main / Browse / Listings / Collect / Confirm.
+  No buy / sell / cancel / collect logic is duplicated in the GUI;
+  every click delegates to the same `AuctionHouseManager` methods
+  the text commands use. Bidding, search and sort are still out of
+  scope and planned for later releases. The Auction House talks to
+  the existing `EconomyBridge` only and never imports a specific
   economy plugin; see [`DEPENDENCIES.md`](DEPENDENCIES.md).
 - **Auction House uses SQLite via Paper's `libraries:` loader.** No NMS
   or `org.bukkit.craftbukkit.*` is used. On Spigot / CraftBukkit the
@@ -136,3 +141,19 @@ still applies to everyone else.
   message. Withdraw / deposit failures roll back the claim via
   `revertSoldIfBuyer(listing_id, buyer_uuid)`, which is itself guarded
   so a stale rollback can never undo a later successful sale.
+- **Auction House GUI uses Bukkit inventory APIs only.** No NMS, no
+  CraftBukkit internals, no reflection on internal server packages.
+  The GUI relies on Paper's `Bukkit.createInventory(InventoryHolder,
+  int, Component)` overload to set rich Adventure titles. If the
+  overload is missing (pure Spigot), the GUI falls back to the legacy
+  `String` title overload after serializing the Component to plain
+  text - the GUI still works, just without gradient titles. If the
+  `gui.enabled` flag in `auctionhouse.yml` is `false`, or any
+  unexpected error happens during inventory creation, `/ah` silently
+  falls back to the clean German text help and every subcommand keeps
+  working unchanged. Every GUI click is cancelled before logic runs;
+  only LEFT/RIGHT/MIDDLE clicks dispatch a screen action, which
+  blocks shift-click moves, number-key swaps, double-click hoover,
+  drop keys, offhand swap and creative clicks at the source. Drag
+  events are cancelled the moment any of their raw slots overlap
+  with an Auction House inventory.

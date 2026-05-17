@@ -529,22 +529,31 @@ public final class AuctionHouseManager {
      *                      when listings exist, or returned as-is on an empty market
      */
     public CompletableFuture<BrowsePage> browseListings(int requestedPage) {
+        return browseListings(requestedPage, config.getBrowsePageSize());
+    }
+
+    /**
+     * Same as {@link #browseListings(int)} but with an explicit page
+     * size. Used by the V2.3 GUI, whose grid size is independent of the
+     * text-mode {@code browse.page-size}.
+     */
+    public CompletableFuture<BrowsePage> browseListings(int requestedPage, int pageSize) {
         if (!active) {
             return CompletableFuture.completedFuture(BrowsePage.empty(requestedPage));
         }
-        int pageSize = config.getBrowsePageSize();
+        int effectivePageSize = Math.max(1, pageSize);
         long now = System.currentTimeMillis();
         CompletableFuture<BrowsePage> out = new CompletableFuture<>();
         runDb(() -> {
             int total = storage.countActiveBrowse(now);
             if (total == 0) {
-                return new BrowsePage(List.of(), 1, 1, 0, pageSize);
+                return new BrowsePage(List.of(), 1, 1, 0, effectivePageSize);
             }
-            int totalPages = (total + pageSize - 1) / pageSize;
+            int totalPages = (total + effectivePageSize - 1) / effectivePageSize;
             int page = Math.max(1, Math.min(requestedPage, totalPages));
-            int offset = (page - 1) * pageSize;
-            List<AuctionListing> rows = storage.getActiveBrowsePage(now, offset, pageSize);
-            return new BrowsePage(rows, page, totalPages, total, pageSize);
+            int offset = (page - 1) * effectivePageSize;
+            List<AuctionListing> rows = storage.getActiveBrowsePage(now, offset, effectivePageSize);
+            return new BrowsePage(rows, page, totalPages, total, effectivePageSize);
         }).whenComplete((page, ex) -> runOnMain(() -> {
             if (ex != null) {
                 logStorage("browseListings", ex);
@@ -553,6 +562,99 @@ public final class AuctionHouseManager {
             }
             out.complete(page);
         }));
+        return out;
+    }
+
+    /**
+     * Single-row variant of {@link #collectAll(Player)} used by the GUI.
+     * The dupe-protection contract is identical: full fit deletes the
+     * row, partial fit updates the row to the remainder, no fit leaves
+     * the row untouched. Items are never dropped, never deleted, never
+     * duplicated.
+     */
+    public CompletableFuture<CollectOneResult> collectOne(Player player, long collectId) {
+        if (!active) {
+            return CompletableFuture.completedFuture(CollectOneResult.failure("auction.disabled"));
+        }
+        UUID owner = player.getUniqueId();
+        CompletableFuture<CollectOneResult> out = new CompletableFuture<>();
+        runDb(() -> storage.getCollectItemsForOwner(owner))
+                .whenComplete((items, ex) -> runOnMain(() -> {
+                    if (ex != null) {
+                        logStorage("collectOne/list", ex);
+                        out.complete(CollectOneResult.failure("auction.storage-error"));
+                        return;
+                    }
+                    AuctionCollectItem target = null;
+                    for (AuctionCollectItem ci : items) {
+                        if (ci.collectId() == collectId) {
+                            target = ci;
+                            break;
+                        }
+                    }
+                    if (target == null) {
+                        out.complete(CollectOneResult.notFound());
+                        return;
+                    }
+                    if (!player.isOnline()) {
+                        out.complete(CollectOneResult.failure("general.player-only"));
+                        return;
+                    }
+                    ItemStack candidate = target.itemStack().clone();
+                    int before = candidate.getAmount();
+                    Map<Integer, ItemStack> leftover = player.getInventory().addItem(candidate);
+                    if (leftover.isEmpty()) {
+                        long id = target.collectId();
+                        runDb(() -> storage.deleteCollectItem(id))
+                                .whenComplete((ok, dbEx) -> runOnMain(() -> {
+                                    if (dbEx != null) {
+                                        logStorage("collectOne/delete", dbEx);
+                                    }
+                                    out.complete(CollectOneResult.delivered());
+                                }));
+                        return;
+                    }
+                    ItemStack rest = leftover.values().iterator().next();
+                    if (rest.getAmount() >= before) {
+                        // No room at all - row untouched, nothing was
+                        // moved into the inventory.
+                        out.complete(CollectOneResult.inventoryFull());
+                        return;
+                    }
+                    long id = target.collectId();
+                    ItemStack remainder = rest.clone();
+                    runDb(() -> storage.updateCollectItemStack(id, remainder))
+                            .whenComplete((ok, dbEx) -> runOnMain(() -> {
+                                if (dbEx != null) {
+                                    logStorage("collectOne/update", dbEx);
+                                }
+                                out.complete(CollectOneResult.partial(
+                                        before - remainder.getAmount(),
+                                        remainder.getAmount()));
+                            }));
+                }));
+        return out;
+    }
+
+    /**
+     * Fetches the player's collect rows for the GUI preview. Returns an
+     * empty list on storage errors so the GUI can render a clean
+     * "nothing to collect" state instead of an error popup.
+     */
+    public CompletableFuture<List<AuctionCollectItem>> getCollectItems(UUID owner) {
+        if (!active) {
+            return CompletableFuture.completedFuture(List.of());
+        }
+        CompletableFuture<List<AuctionCollectItem>> out = new CompletableFuture<>();
+        runDb(() -> storage.getCollectItemsForOwner(owner))
+                .whenComplete((items, ex) -> runOnMain(() -> {
+                    if (ex != null) {
+                        logStorage("getCollectItems", ex);
+                        out.complete(List.of());
+                        return;
+                    }
+                    out.complete(items);
+                }));
         return out;
     }
 
@@ -1076,6 +1178,31 @@ public final class AuctionHouseManager {
             return new Partial(delivered, remaining);
         }
         static CollectResult failure(String key) {
+            return new Failure(key);
+        }
+    }
+
+    /** Output of {@link #collectOne(Player, long)}. */
+    public sealed interface CollectOneResult {
+        record Delivered() implements CollectOneResult {}
+        record Partial(int deliveredAmount, int remainingAmount) implements CollectOneResult {}
+        record InventoryFull() implements CollectOneResult {}
+        record NotFound() implements CollectOneResult {}
+        record Failure(String messageKey) implements CollectOneResult {}
+
+        static CollectOneResult delivered() {
+            return new Delivered();
+        }
+        static CollectOneResult partial(int delivered, int remaining) {
+            return new Partial(delivered, remaining);
+        }
+        static CollectOneResult inventoryFull() {
+            return new InventoryFull();
+        }
+        static CollectOneResult notFound() {
+            return new NotFound();
+        }
+        static CollectOneResult failure(String key) {
             return new Failure(key);
         }
     }

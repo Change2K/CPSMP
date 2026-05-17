@@ -2,6 +2,7 @@ package de.deinserver.cpsmp.auction;
 
 import de.deinserver.cpsmp.CPSMPPlugin;
 import de.deinserver.cpsmp.MessageManager;
+import de.deinserver.cpsmp.auction.gui.AuctionGuiManager;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -36,9 +37,12 @@ import java.util.Map;
  *     <li>{@code /ah admin reload} - reload AH config + messages</li>
  * </ul>
  *
- * <p>V2.2 keeps the command text-only. The premium browse/buy GUI lands
- * in V2.3; this command stays so the backend can be exercised and so
- * console / admins always have a non-GUI path to the same operations.
+ * <p>V2.3: bare {@code /ah} now opens the premium German GUI. Every
+ * subcommand still works exactly as in V2.1/V2.2 so console, admins
+ * and anyone with the GUI disabled keep a complete non-GUI path. If
+ * the GUI cannot open (config off or platform missing the required
+ * Paper API), the command silently falls back to the clean German
+ * text help.
  */
 public final class AuctionCommand implements CommandExecutor, TabCompleter {
 
@@ -49,10 +53,12 @@ public final class AuctionCommand implements CommandExecutor, TabCompleter {
 
     private final CPSMPPlugin plugin;
     private final AuctionHouseManager auction;
+    private final AuctionGuiManager gui;
 
-    public AuctionCommand(CPSMPPlugin plugin, AuctionHouseManager auction) {
+    public AuctionCommand(CPSMPPlugin plugin, AuctionHouseManager auction, AuctionGuiManager gui) {
         this.plugin = plugin;
         this.auction = auction;
+        this.gui = gui;
     }
 
     @Override
@@ -64,6 +70,20 @@ public final class AuctionCommand implements CommandExecutor, TabCompleter {
             return true;
         }
         if (args.length == 0) {
+            // V2.3: bare /ah opens the premium GUI for players, with a
+            // best-effort fallback to the German text help if anything
+            // goes wrong (GUI disabled in config, missing Paper API,
+            // unexpected exception during inventory creation). Console
+            // and command blocks always get the text help.
+            if (sender instanceof Player player && gui != null && gui.isEnabled()) {
+                try {
+                    gui.openMain(player);
+                    return true;
+                } catch (Throwable t) {
+                    plugin.getLogger().warning("Failed to open auction GUI; falling back to text help: "
+                            + t.getMessage());
+                }
+            }
             sendHelp(sender);
             return true;
         }

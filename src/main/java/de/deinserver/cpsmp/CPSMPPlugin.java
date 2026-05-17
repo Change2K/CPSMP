@@ -2,6 +2,8 @@ package de.deinserver.cpsmp;
 
 import de.deinserver.cpsmp.auction.AuctionCommand;
 import de.deinserver.cpsmp.auction.AuctionHouseManager;
+import de.deinserver.cpsmp.auction.gui.AuctionGuiClickListener;
+import de.deinserver.cpsmp.auction.gui.AuctionGuiManager;
 import de.deinserver.cpsmp.compat.BukkitTeleportAdapter;
 import de.deinserver.cpsmp.compat.PaperTeleportAdapter;
 import de.deinserver.cpsmp.compat.ServerCompatibility;
@@ -20,9 +22,11 @@ import org.jetbrains.annotations.Nullable;
  * listeners, and exposes shared helpers used across the plugin (spawn lookup,
  * persistent spawn write, global reload).
  *
- * <p>V2.1 adds the Auction House backend ({@link AuctionHouseManager},
- * {@link AuctionCommand}). Homes, TPA and Claims are still intentionally
- * out of scope and planned for later versions.
+ * <p>V2.1 added the Auction House backend ({@link AuctionHouseManager},
+ * {@link AuctionCommand}). V2.2 added the browse / buy backend flow.
+ * V2.3 adds the premium German GUI on top ({@link AuctionGuiManager} +
+ * {@link AuctionGuiClickListener}). Homes, TPA and Claims are still
+ * intentionally out of scope and planned for later versions.
  */
 public final class CPSMPPlugin extends JavaPlugin {
 
@@ -40,6 +44,8 @@ public final class CPSMPPlugin extends JavaPlugin {
     private ZoneManager zoneManager;
     private ZoneListener zoneListener;
     private AuctionHouseManager auctionHouseManager;
+    private AuctionGuiManager auctionGuiManager;
+    private AuctionGuiClickListener auctionGuiListener;
 
     @Override
     public void onEnable() {
@@ -105,14 +111,22 @@ public final class CPSMPPlugin extends JavaPlugin {
             admin.setExecutor(adminCommand);
             admin.setTabCompleter(adminCommand);
         }
-        AuctionCommand auctionCommand = new AuctionCommand(this, auctionHouseManager);
+        // V2.3 GUI layer. Sits on top of the V2.1/V2.2 backend without
+        // duplicating any buy/sell/cancel/collect logic - every click
+        // calls the AuctionHouseManager methods that the text commands
+        // already use.
+        this.auctionGuiManager = new AuctionGuiManager(this, auctionHouseManager);
+        this.auctionGuiListener = new AuctionGuiClickListener(auctionGuiManager);
+        getServer().getPluginManager().registerEvents(auctionGuiListener, this);
+
+        AuctionCommand auctionCommand = new AuctionCommand(this, auctionHouseManager, auctionGuiManager);
         PluginCommand ah = getCommand("ah");
         if (ah != null) {
             ah.setExecutor(auctionCommand);
             ah.setTabCompleter(auctionCommand);
         }
 
-        getLogger().info("CPSMP V2.1 enabled.");
+        getLogger().info("CPSMP V2.3 enabled.");
     }
 
     @Override
@@ -120,10 +134,13 @@ public final class CPSMPPlugin extends JavaPlugin {
         if (portalListener != null) portalListener.shutdown();
         if (zoneListener != null) zoneListener.shutdown();
         if (teleportService != null) teleportService.shutdown();
-        // Disable the Auction House before the rest so it can drain
+        // Close every open AH GUI before touching the backend so the
+        // listener does not see stale references after disable.
+        if (auctionGuiManager != null) auctionGuiManager.closeAll();
+        // Disable the Auction House after closing GUIs so it can drain
         // pending DB work and close its SQLite handle cleanly.
         if (auctionHouseManager != null) auctionHouseManager.disable();
-        getLogger().info("CPSMP V2.1 disabled.");
+        getLogger().info("CPSMP V2.3 disabled.");
     }
 
     private void registerCommand(String name, org.bukkit.command.CommandExecutor executor) {
@@ -154,6 +171,12 @@ public final class CPSMPPlugin extends JavaPlugin {
         // full disable/enable cycle inside the manager.
         if (auctionHouseManager != null) {
             auctionHouseManager.reload();
+        }
+        // Close any open AH GUI so players see the refreshed config
+        // (filler colour, rows, confirmation threshold, ...) the next
+        // time they run /ah instead of holding onto a stale view.
+        if (auctionGuiManager != null) {
+            auctionGuiManager.closeAll();
         }
     }
 
@@ -205,4 +228,5 @@ public final class CPSMPPlugin extends JavaPlugin {
     public TeleportAdapter getTeleportAdapter() { return teleportAdapter; }
     public EconomyManager getEconomyManager() { return economyManager; }
     public AuctionHouseManager getAuctionHouseManager() { return auctionHouseManager; }
+    public AuctionGuiManager getAuctionGuiManager() { return auctionGuiManager; }
 }

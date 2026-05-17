@@ -1,8 +1,8 @@
-# CPSMP Auction House (V2.1) backend configuration.
+# CPSMP Auction House backend configuration.
 #
-# This file controls the storage backend, listing rules, fees and cleanup
-# behavior of the Auction House. The premium GUI ships in a later version;
-# V2.1 only exposes the backend through /ah text commands.
+# This file controls the storage backend, listing rules, fees, cleanup
+# behavior and (since V2.3) the premium German GUI on top of the
+# existing V2.1/V2.2 backend.
 #
 # All player-facing messages live in messages.yml under the `auction.*`
 # branch and are written in German.
@@ -31,7 +31,9 @@ listings:
   # with `auction.price-too-low` / `auction.price-too-high`.
   min-price: 1.0
   max-price: 1000000.0
-  # Reserved for the V2.2 buy flow. Has no effect in V2.1.
+  # When false, /ah buy refuses to buy your own listing (the GUI also
+  # disables the click on browse tiles owned by you). When true, the
+  # marketplace allows self-purchase - useful for staff testing.
   allow-own-purchase: false
 
 fees:
@@ -40,12 +42,17 @@ fees:
   # (no withdraw is attempted; selling works even with NoEconomyBridge as
   # long as `require-economy-for-auction-house` in economy.yml is false).
   listing-fee: 0.0
-  # Reserved for the V2.2 buy flow. Has no effect in V2.1.
+  # Percentage of the gross price that is taken as sale tax when a
+  # listing sells. The buyer pays the full price, the seller is paid
+  # the post-tax net amount. Set to 0.0 to disable the sale tax.
   sale-tax-percent: 5.0
 
 confirmations:
-  # Reserved for the V2.2 buy flow (expensive-purchase confirm dialog).
-  # Has no effect in V2.1.
+  # When the GUI is enabled and `gui.confirmation.enabled` is true,
+  # listings priced at or above this threshold open a "Kauf bestaetigen"
+  # confirmation screen before the buy is dispatched. Listings below
+  # the threshold buy immediately on click (the backend still
+  # re-validates everything atomically).
   expensive-purchase-threshold: 10000.0
 
 blocked-items:
@@ -64,10 +71,40 @@ cleanup:
   expire-check-interval-seconds: 60
 
 browse:
-  # Number of listings shown per /ah browse page. Clamped to [3, 50]
-  # so the text overview stays readable in chat. The premium GUI in
-  # V2.3 will pick its own grid size and ignore this value.
+  # Number of listings shown per /ah browse page in chat. Clamped to
+  # [3, 50] so the text overview stays readable. The V2.3 GUI grid
+  # size is derived from `gui.rows.browse` below and ignores this
+  # value.
   page-size: 8
+
+# Premium German GUI (V2.3). All rules below only affect the inventory
+# GUI; the underlying /ah text commands keep working exactly as in
+# V2.1/V2.2 when the GUI is disabled or unavailable.
+gui:
+  # Master GUI switch. When false, /ah falls back to the German text
+  # help and the GUI listener simply does nothing.
+  enabled: true
+  # Row counts per screen. Bukkit inventories must be 1-6 rows; the
+  # main hub is capped at 3 rows because it never needs more buttons.
+  rows:
+    main: 3
+    browse: 6
+    listings: 6
+    collect: 6
+  # When true, the GUI re-fetches and re-renders after a successful
+  # buy / cancel / collect so the player sees the new state without
+  # closing the inventory.
+  refresh-after-action: true
+  # Confirmation dialog for expensive purchases. Threshold is
+  # `confirmations.expensive-purchase-threshold` above.
+  confirmation:
+    enabled: true
+  # Visual filler used for empty slots. Set `enabled: false` for a
+  # raw inventory background.
+  filler:
+    enabled: true
+    material: GRAY_STAINED_GLASS_PANE
+    name: " "
 
 # Verbose logging for AH operations (listing create/cancel/expire,
 # storage init, transaction outcomes). Off by default.
