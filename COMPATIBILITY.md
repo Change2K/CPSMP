@@ -112,8 +112,18 @@ still applies to everyone else.
   `MessageManager` accordingly. This is out of scope for V1.
 - **Folia is not targeted.** Migrating would touch every scheduler call and
   the `BukkitTeleportAdapter`.
-- **V1 feature scope is frozen.** Auction House, Homes, TPA and Claims are
-  planned for later versions and must not be added in V1.
-- **V2 economy foundation is in place but inert.** The `economy` package
-  ships a Vault bridge + null-object fallback but no economy-gated
-  features are wired up yet; see [`DEPENDENCIES.md`](DEPENDENCIES.md).
+- **Homes, TPA and Claims are still out of scope** and planned for later
+  versions.
+- **V2.1 Auction House backend is in place.** The `auction` package
+  ships the data model, an SQLite-backed `AuctionStorage`, an
+  idempotent `AuctionExpiryService`, the dupe-safe sell / cancel /
+  collect flows, and the text-only `/ah` command. The premium German
+  GUI, the buy flow, bidding, search and sort all land in later
+  releases. The Auction House talks to the existing `EconomyBridge`
+  only and never imports a specific economy plugin; see
+  [`DEPENDENCIES.md`](DEPENDENCIES.md).
+- **Auction House uses SQLite via Paper's `libraries:` loader.** No NMS
+  or `org.bukkit.craftbukkit.*` is used. On Spigot / CraftBukkit the
+  loader directive is ignored; the Auction House detects the missing
+  JDBC driver during `init()`, logs a German error and disables itself
+  without affecting spawn, RTP, portals, zones or the economy bridge.

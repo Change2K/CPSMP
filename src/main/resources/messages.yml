@@ -91,6 +91,7 @@ admin:
   info-zones: "<gray>Zonen: <yellow>Gefahr={danger}</yellow>, <yellow>Attack={attack}</yellow></gray>"
   info-platform: "<gray>Plattform: <yellow>{platform}</yellow> <dark_gray>|</dark_gray> Teleport-Backend: <yellow>{backend}</yellow></gray>"
   info-economy: "<gray>Economy: <yellow>{bridge}</yellow> <dark_gray>|</dark_gray> Provider: <yellow>{provider}</yellow></gray>"
+  info-auction: "<gray>Auktionshaus: <yellow>{state}</yellow> <dark_gray>|</dark_gray> Storage: <yellow>{storage}</yellow> <dark_gray>|</dark_gray> Status: <yellow>{reason}</yellow></gray>"
 
 economy:
   # Logged at startup when a provider was detected.
@@ -108,3 +109,52 @@ economy:
   invalid-amount: "<red>Ungueltiger Betrag.</red>"
   transaction-failed: "<red>Transaktion fehlgeschlagen.</red>"
   transaction-ok: "<green>Transaktion erfolgreich.</green>"
+
+# Auktionshaus (V2.1) - alle Texte fuer das /ah Backend.
+# Premium-Stil: kurz, sauber, keine Spam-Zeilen. Die finale GUI folgt
+# in einer spaeteren Version; bis dahin liefert das Command-Interface
+# alle Aktionen.
+auction:
+  no-permission: "<red>Dir fehlt die Berechtigung.</red>"
+  disabled: "<gray>Das Auktionshaus ist derzeit nicht verfuegbar.</gray>"
+  economy-required: "<red>Diese Funktion benoetigt ein Economy-System.</red>"
+  storage-error: "<red>Auktionshaus-Speicher derzeit nicht erreichbar.</red>"
+  # /ah help
+  help: "<gradient:#5BCEFA:#F5A9B8><bold>Auktionshaus</bold></gradient> <dark_gray>|</dark_gray> <gray>Befehle:</gray>"
+  help-sell: "<gray> <yellow>/ah sell <Preis></yellow> <dark_gray>-</dark_gray> Item in der Haupthand verkaufen.</gray>"
+  help-listings: "<gray> <yellow>/ah listings</yellow> <dark_gray>-</dark_gray> Eigene aktive Angebote anzeigen.</gray>"
+  help-cancel: "<gray> <yellow>/ah cancel <ID></yellow> <dark_gray>-</dark_gray> Eigenes Angebot zurueckziehen.</gray>"
+  help-collect: "<gray> <yellow>/ah collect</yellow> <dark_gray>-</dark_gray> Bereitgestellte Items abholen.</gray>"
+  help-admin: "<gray> <yellow>/ah admin <remove|info|reload></yellow></gray>"
+  # /ah sell
+  invalid-price: "<red>Ungueltiger Preis.</red>"
+  price-too-low: "<red>Preis zu niedrig. Mindestens <yellow>{min}</yellow>.</red>"
+  price-too-high: "<red>Preis zu hoch. Maximal <yellow>{max}</yellow>.</red>"
+  invalid-item: "<red>Dieses Item kann nicht verkauft werden.</red>"
+  blocked-item: "<red>Dieses Item ist im Auktionshaus gesperrt.</red>"
+  max-listings-reached: "<gray>Du hast bereits <yellow>{max}</yellow> aktive Angebote.</gray>"
+  listing-created: "<green>Angebot erstellt.</green> <dark_gray>(ID <yellow>{id}</yellow>, <yellow>{item}</yellow> x<yellow>{amount}</yellow> fuer <yellow>{price}</yellow>)</dark_gray>"
+  # /ah listings
+  listings-empty: "<gray>Du hast keine aktiven Angebote.</gray>"
+  listings-header: "<gradient:#5BCEFA:#F5A9B8><bold>Deine Angebote</bold></gradient> <dark_gray>|</dark_gray> <gray><yellow>{count}</yellow> aktiv</gray>"
+  listings-row: "<gray> <yellow>#{id}</yellow> <dark_gray>|</dark_gray> {item} x<yellow>{amount}</yellow> <dark_gray>|</dark_gray> <yellow>{price}</yellow> <dark_gray>|</dark_gray> <gray>noch <yellow>{time}</yellow></gray></gray>"
+  # /ah cancel
+  listing-cancelled: "<green>Angebot zurueckgezogen.</green> <dark_gray>(ID <yellow>{id}</yellow>, im Abholfach hinterlegt)</dark_gray>"
+  listing-not-found: "<red>Dieses Angebot existiert nicht.</red>"
+  not-your-listing: "<red>Dieses Angebot gehoert dir nicht.</red>"
+  # /ah collect
+  collect-empty: "<gray>Du hast keine Items zum Abholen.</gray>"
+  collect-success: "<green>Abholung abgeschlossen.</green> <dark_gray>(<yellow>{count}</yellow> Items)</dark_gray>"
+  collect-partial: "<gray>Abholung teilweise erledigt.</gray> <dark_gray>(<yellow>{count}</yellow> erhalten, <yellow>{remaining}</yellow> verbleiben - Inventar pruefen)</dark_gray>"
+  # /ah admin
+  admin-usage: "<gray>Nutzung: <yellow>/ah admin <remove <ID>|info|reload></yellow></gray>"
+  admin-removed: "<green>Angebot entfernt.</green> <dark_gray>(ID <yellow>{id}</yellow>, Verkaeufer <yellow>{seller}</yellow>; Item im Abholfach des Verkaeufers)</dark_gray>"
+  admin-info-header: "<gradient:#5BCEFA:#F5A9B8><bold>Auktionshaus</bold></gradient>"
+  admin-info-state: "<gray>Aktiv: <yellow>{state}</yellow> <dark_gray>|</dark_gray> Status: <yellow>{reason}</yellow></gray>"
+  admin-info-storage: "<gray>Storage: <yellow>{type}</yellow></gray>"
+  admin-info-counts: "<gray>Angebote: <yellow>{active}</yellow> aktiv, <yellow>{expired}</yellow> abgelaufen, <yellow>{cancelled}</yellow> zurueckgezogen <dark_gray>|</dark_gray> Abholfach: <yellow>{collect}</yellow></gray>"
+  admin-info-economy: "<gray>Economy: <yellow>{bridge}</yellow> <dark_gray>|</dark_gray> Provider: <yellow>{provider}</yellow> <dark_gray>|</dark_gray> verfuegbar: <yellow>{available}</yellow></gray>"
+  reload-success: "<green>Auktionshaus-Konfiguration neu geladen.</green>"
+  # Used by future expiry notifications (V2.2+). Already declared so
+  # admins can translate / restyle the string today.
+  expired-returned: "<gray>Dein Angebot ist abgelaufen. Verwende <yellow>/ah collect</yellow>, um das Item zurueckzuholen.</gray>"

@@ -13,8 +13,9 @@ import java.util.logging.Level;
 /**
  * Loads, saves and re-loads the configuration files used by CPSMP:
  * {@code config.yml}, {@code messages.yml}, {@code portals.yml},
- * {@code zones.yml} and {@code economy.yml}. Each external file is
- * created from the bundled default on first launch.
+ * {@code zones.yml}, {@code economy.yml} and {@code auctionhouse.yml}.
+ * Each external file is created from the bundled default on first
+ * launch.
  */
 public final class ConfigManager {
 
@@ -22,6 +23,7 @@ public final class ConfigManager {
     private static final String PORTALS_FILE = "portals.yml";
     private static final String ZONES_FILE = "zones.yml";
     private static final String ECONOMY_FILE = "economy.yml";
+    private static final String AUCTION_FILE = "auctionhouse.yml";
 
     private final CPSMPPlugin plugin;
 
@@ -29,11 +31,13 @@ public final class ConfigManager {
     private File portalsFile;
     private File zonesFile;
     private File economyFile;
+    private File auctionFile;
 
     private FileConfiguration messages;
     private FileConfiguration portals;
     private FileConfiguration zones;
     private FileConfiguration economy;
+    private FileConfiguration auction;
 
     public ConfigManager(CPSMPPlugin plugin) {
         this.plugin = plugin;
@@ -47,11 +51,13 @@ public final class ConfigManager {
         this.portalsFile = ensureFile(PORTALS_FILE);
         this.zonesFile = ensureFile(ZONES_FILE);
         this.economyFile = ensureFile(ECONOMY_FILE);
+        this.auctionFile = ensureFile(AUCTION_FILE);
 
         this.messages = loadWithDefaults(messagesFile, MESSAGES_FILE);
         this.portals = loadWithDefaults(portalsFile, PORTALS_FILE);
         this.zones = loadWithDefaults(zonesFile, ZONES_FILE);
         this.economy = loadWithDefaults(economyFile, ECONOMY_FILE);
+        this.auction = loadWithDefaults(auctionFile, AUCTION_FILE);
     }
 
     public void reload() {
@@ -93,6 +99,10 @@ public final class ConfigManager {
         return economy;
     }
 
+    public FileConfiguration getAuction() {
+        return auction;
+    }
+
     public void savePortals() {
         save(portals, portalsFile);
     }
@@ -107,6 +117,10 @@ public final class ConfigManager {
 
     public void saveEconomy() {
         save(economy, economyFile);
+    }
+
+    public void saveAuction() {
+        save(auction, auctionFile);
     }
 
     private void save(FileConfiguration cfg, File file) {

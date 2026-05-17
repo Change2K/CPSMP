@@ -46,14 +46,32 @@ To upgrade Paper or VaultAPI, edit the corresponding property in
 <vault.api.version>1.7.1</vault.api.version>
 ```
 
+### 2.1 Runtime-loaded libraries
+
+The CPSMP jar does not shade or bundle any third-party libraries. One
+runtime-only dependency is resolved by Paper itself through the
+`libraries:` directive in `plugin.yml`:
+
+| Library | Version | Purpose | Loader |
+|---|---|---|---|
+| `org.xerial:sqlite-jdbc` | `3.46.1.0` | JDBC driver for the Auction House SQLite backend (`SQLiteAuctionStorage`). | Paper library loader (Maven Central). |
+
+CPSMP code touches only the JDK's `java.sql.*` API; the driver class
+itself is found at runtime via the standard JDBC `ServiceLoader`
+mechanism. On Spigot / CraftBukkit the `libraries:` directive is
+ignored; if no SQLite driver is on the classpath, `AuctionHouseManager`
+catches the missing-driver error during init, logs a clear German
+message and disables itself without taking the rest of CPSMP down.
+
 ---
 
 ## 3. Required Runtime Plugins
 
 | Feature scope | Required plugins |
 |---|---|
-| **CPSMP V1 core** (spawn, RTP, portals, zones, admin) | **None** |
-| Future Auction House (V2) | A Vault-compatible economy setup (Vault + one provider) |
+| **CPSMP core** (spawn, RTP, portals, zones, admin) | **None** |
+| **Auction House (V2.1)** - listing creation with a non-zero `fees.listing-fee` or with `require-economy-for-auction-house: true` | A Vault-compatible economy setup (Vault + one provider) |
+| **Auction House (V2.1)** - listing creation with no fee and `require-economy-for-auction-house: false` | None |
 
 ---
 
@@ -94,10 +112,16 @@ Listed in `plugin.yml`:
 - CPSMP must **not** directly depend on EssentialsX, CMI, TheNewEconomy,
   XConomy, GemsEconomy or any other specific economy plugin. Support is
   routed through Vault.
-- Economy-dependent CPSMP features must fail safely with a German player
-  message (`economy.unavailable`, `economy.required`, etc.) when no
-  provider is available. The server stays up; only the gated feature is
-  unavailable.
+- Economy-dependent CPSMP features (Auction House listing fees, the
+  optional `require-economy-for-auction-house` gate, and the future
+  buy-flow) must fail safely with a German player message
+  (`economy.unavailable`, `auction.economy-required`, etc.) when no
+  provider is available. The server stays up; only the gated feature
+  is unavailable.
+- The Auction House talks **only** to `de.deinserver.cpsmp.economy.EconomyBridge`.
+  It never imports `net.milkbowl.vault.*` or any EssentialsX / CMI /
+  XConomy / GemsEconomy class directly. Switching the underlying
+  economy plugin requires zero changes to Auction House code.
 - The server owner is responsible for installing **one** economy provider
   alongside Vault. CPSMP does not pick a provider on the admin's behalf
   and does not attempt to migrate balances between providers.
@@ -107,6 +131,9 @@ Listed in `plugin.yml`:
   behavior).
 - All economy operations use **player UUIDs** as the canonical identifier
   and resolve to `OfflinePlayer` only inside `VaultEconomyBridge`.
+- Auction House persistence uses **SQLite** through the `java.sql` API
+  with the driver supplied at runtime by Paper's `libraries:` loader
+  (see section 2.1). No NMS or `org.bukkit.craftbukkit.*` code is used.
 
 ---
 

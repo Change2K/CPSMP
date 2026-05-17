@@ -319,6 +319,20 @@ public final class AdminCommand implements CommandExecutor, TabCompleter {
                 "bridge", bridge.providerType().name(),
                 "provider", bridge.providerName()
         ));
+        // Auction House line. Showing only the cheap synchronous fields
+        // (active flag, storage type) here keeps /cpsmpadmin info
+        // instant; counts are available via /ah admin info.
+        de.deinserver.cpsmp.auction.AuctionHouseManager ah = plugin.getAuctionHouseManager();
+        if (ah != null) {
+            String state = ah.isActive() ? "AN" : "AUS";
+            String reason = ah.getInactiveReason() != null ? ah.getInactiveReason() : "-";
+            String storage = ah.getConfig() != null ? ah.getConfig().getStorageType() : "-";
+            messages.sendPrefixed(sender, "admin.info-auction", Map.of(
+                    "state", state,
+                    "storage", storage,
+                    "reason", reason
+            ));
+        }
         return true;
     }
 

@@ -1,0 +1,68 @@
+# CPSMP Auction House (V2.1) backend configuration.
+#
+# This file controls the storage backend, listing rules, fees and cleanup
+# behavior of the Auction House. The premium GUI ships in a later version;
+# V2.1 only exposes the backend through /ah text commands.
+#
+# All player-facing messages live in messages.yml under the `auction.*`
+# branch and are written in German.
+
+# Master switch. When false the Auction House refuses every player-facing
+# command with `auction.disabled` and the expiry task does not run. The
+# rest of CPSMP (spawn, RTP, portals, zones, economy bridge) is unaffected.
+enabled: true
+
+storage:
+  # Storage backend. Only "sqlite" is supported in V2.1.
+  type: sqlite
+  # SQLite database file, relative to the plugin data folder.
+  file: auctionhouse.db
+
+listings:
+  # Lifetime of a fresh listing before AuctionExpiryService marks it as
+  # EXPIRED and moves the item into the seller's collect storage.
+  duration-hours: 72
+  # Maximum number of simultaneously ACTIVE listings per seller.
+  # Permission-based overrides will be added in a later version; for now
+  # this is a single global limit applied to everyone except admins
+  # (cpsmp.ah.admin bypasses the check).
+  max-active-listings-default: 5
+  # Inclusive price bounds. /ah sell rejects anything outside this range
+  # with `auction.price-too-low` / `auction.price-too-high`.
+  min-price: 1.0
+  max-price: 1000000.0
+  # Reserved for the V2.2 buy flow. Has no effect in V2.1.
+  allow-own-purchase: false
+
+fees:
+  # Currency removed from the seller via EconomyBridge.withdraw the moment
+  # a listing is created. Set to 0.0 to disable the listing fee entirely
+  # (no withdraw is attempted; selling works even with NoEconomyBridge as
+  # long as `require-economy-for-auction-house` in economy.yml is false).
+  listing-fee: 0.0
+  # Reserved for the V2.2 buy flow. Has no effect in V2.1.
+  sale-tax-percent: 5.0
+
+confirmations:
+  # Reserved for the V2.2 buy flow (expensive-purchase confirm dialog).
+  # Has no effect in V2.1.
+  expensive-purchase-threshold: 10000.0
+
+blocked-items:
+  # Materials that may never be listed. Case-insensitive Bukkit Material
+  # names (e.g. "BEDROCK", "COMMAND_BLOCK"). /ah sell rejects them with
+  # `auction.blocked-item`. Empty list means "no extra block list" (air
+  # and unobtainable items are always rejected regardless).
+  materials: []
+
+cleanup:
+  # How often AuctionExpiryService scans the listings table for ACTIVE
+  # rows whose expires_at <= now. Each scan runs asynchronously and only
+  # touches the DB; no Bukkit API is used off-thread.
+  # The scan is idempotent: even if it runs twice in parallel, a listing
+  # can only be moved into collect storage once.
+  expire-check-interval-seconds: 60
+
+# Verbose logging for AH operations (listing create/cancel/expire,
+# storage init, transaction outcomes). Off by default.
+debug: false

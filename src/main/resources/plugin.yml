@@ -7,14 +7,24 @@ main: de.deinserver.cpsmp.CPSMPPlugin
 # re-test. See COMPATIBILITY.md.
 api-version: '1.21'
 author: deinserver
-description: Premium SMP foundation plugin (V1).
+description: Premium SMP foundation plugin (V2.1).
 load: POSTWORLD
 
-# Vault is an optional soft-dependency. CPSMP V1 core works without it.
+# Paper runtime library loading. CPSMP uses SQLite for the V2.1 Auction
+# House backend. Paper resolves and class-loads this library from Maven
+# Central before the plugin is enabled, so we never have to shade it.
+# On Spigot/CraftBukkit this directive is ignored; the Auction House then
+# detects the missing JDBC driver, logs a clear German message and
+# disables itself without affecting the rest of the plugin.
+# See DEPENDENCIES.md.
+libraries:
+  - org.xerial:sqlite-jdbc:3.46.1.0
+
+# Vault is an optional soft-dependency. CPSMP core works without it.
 # When Vault is present AND a Vault economy provider is registered (e.g.
 # EssentialsX, CMI, XConomy), CPSMP uses it for the V2 economy bridge.
 # Without Vault, NoEconomyBridge is installed and economy-dependent
-# features (planned Auction House) disable themselves gracefully.
+# features (Auction House) disable themselves gracefully.
 # See DEPENDENCIES.md.
 softdepend:
   - Vault
@@ -31,6 +41,11 @@ commands:
     description: Zufaelliger Teleport in der aktuellen Welt.
     usage: /rtp
     permission: cpsmp.rtp
+  ah:
+    description: Auktionshaus - Items verkaufen, eigene Angebote verwalten und Abholungen einsammeln.
+    usage: /ah [sell|listings|cancel|collect|admin]
+    aliases: [auctionhouse, auktion]
+    permission: cpsmp.ah
   cpsmpadmin:
     description: Administrative Befehle fuer CPSMP.
     usage: /cpsmpadmin <setspawn|setportal|setzone|reload|info>
@@ -59,6 +74,24 @@ permissions:
   cpsmp.zone.attack:
     description: Erlaubt das Betreten der Attack-Zone.
     default: true
+  # Auction House permissions. /ah is enabled for everyone by default and
+  # gates its subcommands on the finer-grained nodes below so a server
+  # owner can disable e.g. selling without disabling the whole command.
+  cpsmp.ah:
+    description: Erlaubt /ah.
+    default: true
+  cpsmp.ah.sell:
+    description: Erlaubt /ah sell.
+    default: true
+  cpsmp.ah.cancel:
+    description: Erlaubt /ah cancel.
+    default: true
+  cpsmp.ah.collect:
+    description: Erlaubt /ah collect.
+    default: true
+  cpsmp.ah.admin:
+    description: Erlaubt /ah admin (entfernen, info, reload).
+    default: op
   cpsmp.admin:
     description: Voller Adminzugriff fuer CPSMP.
     default: op
@@ -66,6 +99,7 @@ permissions:
       cpsmp.reload: true
       cpsmp.rtp.bypasscooldown: true
       cpsmp.portal.bypass: true
+      cpsmp.ah.admin: true
   cpsmp.reload:
     description: Erlaubt das Neuladen der Konfiguration.
     default: op

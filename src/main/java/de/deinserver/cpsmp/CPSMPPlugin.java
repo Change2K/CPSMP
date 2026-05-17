@@ -1,5 +1,7 @@
 package de.deinserver.cpsmp;
 
+import de.deinserver.cpsmp.auction.AuctionCommand;
+import de.deinserver.cpsmp.auction.AuctionHouseManager;
 import de.deinserver.cpsmp.compat.BukkitTeleportAdapter;
 import de.deinserver.cpsmp.compat.PaperTeleportAdapter;
 import de.deinserver.cpsmp.compat.ServerCompatibility;
@@ -14,12 +16,13 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * CPSMP V1 main class. Builds the dependency graph, registers commands and
+ * CPSMP main class. Builds the dependency graph, registers commands and
  * listeners, and exposes shared helpers used across the plugin (spawn lookup,
  * persistent spawn write, global reload).
  *
- * <p>V1 scope intentionally excludes Auction House, Homes, TPA and Claims.
- * Those are planned for later versions.
+ * <p>V2.1 adds the Auction House backend ({@link AuctionHouseManager},
+ * {@link AuctionCommand}). Homes, TPA and Claims are still intentionally
+ * out of scope and planned for later versions.
  */
 public final class CPSMPPlugin extends JavaPlugin {
 
@@ -36,6 +39,7 @@ public final class CPSMPPlugin extends JavaPlugin {
     private PortalListener portalListener;
     private ZoneManager zoneManager;
     private ZoneListener zoneListener;
+    private AuctionHouseManager auctionHouseManager;
 
     @Override
     public void onEnable() {
@@ -56,12 +60,21 @@ public final class CPSMPPlugin extends JavaPlugin {
                 : new BukkitTeleportAdapter(this);
         getLogger().info("Teleport backend: " + teleportAdapter.name());
 
-        // Economy is a foundation for V2 (Auction House). When no provider
-        // is registered the manager installs a NoEconomyBridge that fails
-        // every transaction with a German reason key; CPSMP V1 core has no
-        // economy-gated features today, so missing economy is non-fatal.
+        // Economy is the foundation for the Auction House. When no
+        // provider is registered the manager installs a NoEconomyBridge
+        // that fails every transaction with a German reason key; the
+        // Auction House then refuses listing creation when an economy
+        // is required (auctionhouse.yml / economy.yml).
         this.economyManager = new EconomyManager(this);
         this.economyManager.load();
+
+        // Auction House (V2.1) is initialised after the economy bridge
+        // so /ah sell can consult the bridge for listing fees on the
+        // very first call. The manager handles its own storage-error
+        // fallback (logs SEVERE and disables itself) so AH problems do
+        // not interrupt the rest of CPSMP startup.
+        this.auctionHouseManager = new AuctionHouseManager(this);
+        this.auctionHouseManager.enable();
 
         this.teleportService = new TeleportService(this);
         this.teleportService.register();
@@ -92,8 +105,14 @@ public final class CPSMPPlugin extends JavaPlugin {
             admin.setExecutor(adminCommand);
             admin.setTabCompleter(adminCommand);
         }
+        AuctionCommand auctionCommand = new AuctionCommand(this, auctionHouseManager);
+        PluginCommand ah = getCommand("ah");
+        if (ah != null) {
+            ah.setExecutor(auctionCommand);
+            ah.setTabCompleter(auctionCommand);
+        }
 
-        getLogger().info("CPSMP V1 enabled.");
+        getLogger().info("CPSMP V2.1 enabled.");
     }
 
     @Override
@@ -101,7 +120,10 @@ public final class CPSMPPlugin extends JavaPlugin {
         if (portalListener != null) portalListener.shutdown();
         if (zoneListener != null) zoneListener.shutdown();
         if (teleportService != null) teleportService.shutdown();
-        getLogger().info("CPSMP V1 disabled.");
+        // Disable the Auction House before the rest so it can drain
+        // pending DB work and close its SQLite handle cleanly.
+        if (auctionHouseManager != null) auctionHouseManager.disable();
+        getLogger().info("CPSMP V2.1 disabled.");
     }
 
     private void registerCommand(String name, org.bukkit.command.CommandExecutor executor) {
@@ -125,6 +147,13 @@ public final class CPSMPPlugin extends JavaPlugin {
         zoneManager.load();
         if (economyManager != null) {
             economyManager.load();
+        }
+        // The Auction House reload is non-destructive when possible
+        // (hot-swap of the live AuctionConfig and a restart of the
+        // expiry task). A change to storage type or file forces a
+        // full disable/enable cycle inside the manager.
+        if (auctionHouseManager != null) {
+            auctionHouseManager.reload();
         }
     }
 
@@ -175,4 +204,5 @@ public final class CPSMPPlugin extends JavaPlugin {
     public ServerCompatibility getServerCompatibility() { return serverCompatibility; }
     public TeleportAdapter getTeleportAdapter() { return teleportAdapter; }
     public EconomyManager getEconomyManager() { return economyManager; }
+    public AuctionHouseManager getAuctionHouseManager() { return auctionHouseManager; }
 }
