@@ -1,6 +1,7 @@
 package de.deinserver.cpsmp.auction.gui;
 
 import de.deinserver.cpsmp.MessageManager;
+import de.deinserver.cpsmp.auction.AuctionBrowseSort;
 import de.deinserver.cpsmp.auction.AuctionCollectItem;
 import de.deinserver.cpsmp.auction.AuctionConfig;
 import de.deinserver.cpsmp.auction.AuctionHouseManager;
@@ -9,6 +10,7 @@ import de.deinserver.cpsmp.auction.AuctionTimeFormatter;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -104,6 +106,29 @@ public final class AuctionGuiItemFactory {
         return labelled(Material.BARRIER,
                 messages.component("auction.gui.button-close"),
                 List.of());
+    }
+
+    public ItemStack browseRefreshButton() {
+        return labelled(Material.COMPASS,
+                messages.component("auction.gui.button-refresh"),
+                List.of());
+    }
+
+    public ItemStack browseSortButton(AuctionBrowseSort mode) {
+        String sortPlain = PlainTextComponentSerializer.plainText()
+                .serialize(messages.component(mode.messageKey()));
+        return labelled(Material.REPEATER,
+                messages.component("auction.gui.button-sort"),
+                List.of(messages.component("auction.gui.current-sort", Map.of("sort", sortPlain))));
+    }
+
+    /**
+     * Center tile when the market has no ACTIVE listings (or no search hits).
+     */
+    public ItemStack browseEmptyPlaceholder() {
+        return labelled(Material.MAP,
+                messages.component("auction.gui.no-auctions-title"),
+                List.of(messages.component("auction.gui.no-auctions-lore")));
     }
 
     public ItemStack backButton() {

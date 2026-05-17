@@ -161,8 +161,15 @@ still applies to everyone else.
   `SELL_CONFIRM`, session escrow for the offered stack and a virtual
   anvil step. The typed price is read only through
   `AnvilView.getRenameText()` (never `AnvilInventory.getRenameText()`).
-  After confirmation the escrow stack is placed on the main hand and
-  listing creation still goes exclusively through
-  `AuctionHouseManager.createListing(Player, double)` with the same
-  dupe-safe SQLite path as `/ah sell`. Aborts and disconnects return
-  items via `AuctionHouseManager.safeReturnItemOrCollect`.
+  After confirmation listing creation uses
+  `AuctionHouseManager.createListing(Player, ItemStack, double)` so
+  the GUI never misuses the player's main hand. Aborts and disconnects
+  return items via `AuctionHouseManager.safeReturnItemOrCollect`.
+- **V2.5 Browse UX** adds `/ah search` (substring on seller name,
+  material name, item display name), configurable browse sort modes
+  (SQL `ORDER BY` when unfiltered; full ACTIVE scan + in-memory filter
+  on the dedicated AH DB thread when searching), **Sortieren** and
+  **Aktualisieren** buttons on the browse nav row,
+  `AuctionItemCategory` as a passive Material→category helper for future
+  filters, and `/ah admin cleanup` to delete historic terminal listing
+  rows (never ACTIVE listings; never `auction_collect_items`).

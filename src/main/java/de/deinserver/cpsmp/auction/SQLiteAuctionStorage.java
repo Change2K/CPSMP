@@ -239,17 +239,13 @@ public final class SQLiteAuctionStorage implements AuctionStorage {
     }
 
     @Override
-    public List<AuctionListing> getActiveBrowsePage(long now, int offset, int limit) throws StorageException {
-        // Newest first so the latest activity sits at the top of /ah browse.
-        // The expires_at filter keeps the visible market in sync with what
-        // the buy flow will actually accept (markSoldIfActive uses the same
-        // guard).
-        String sql = """
-                SELECT * FROM auction_listings
-                WHERE status = ? AND expires_at > ?
-                ORDER BY created_at DESC
-                LIMIT ? OFFSET ?
-                """;
+    public List<AuctionListing> getActiveBrowsePage(long now,
+                                                    int offset,
+                                                    int limit,
+                                                    AuctionBrowseSort sort) throws StorageException {
+        String orderBy = orderByClause(sort);
+        String sql = "SELECT * FROM auction_listings WHERE status = ? AND expires_at > ? ORDER BY "
+                + orderBy + " LIMIT ? OFFSET ?";
         try (PreparedStatement ps = requireConnection().prepareStatement(sql)) {
             ps.setString(1, AuctionListingStatus.ACTIVE.name());
             ps.setLong(2, now);
@@ -258,6 +254,32 @@ public final class SQLiteAuctionStorage implements AuctionStorage {
             return collectListings(ps);
         } catch (SQLException ex) {
             throw new StorageException("getActiveBrowsePage failed: " + ex.getMessage(), ex);
+        }
+    }
+
+    private static String orderByClause(AuctionBrowseSort sort) {
+        return switch (sort == null ? AuctionBrowseSort.NEWEST : sort) {
+            case NEWEST -> "created_at DESC, listing_id DESC";
+            case OLDEST -> "created_at ASC, listing_id ASC";
+            case PRICE_ASC -> "price ASC, listing_id ASC";
+            case PRICE_DESC -> "price DESC, listing_id DESC";
+            case EXPIRING_SOON -> "expires_at ASC, listing_id ASC";
+        };
+    }
+
+    @Override
+    public List<AuctionListing> getAllActiveBrowseListings(long now) throws StorageException {
+        String sql = """
+                SELECT * FROM auction_listings
+                WHERE status = ? AND expires_at > ?
+                ORDER BY listing_id ASC
+                """;
+        try (PreparedStatement ps = requireConnection().prepareStatement(sql)) {
+            ps.setString(1, AuctionListingStatus.ACTIVE.name());
+            ps.setLong(2, now);
+            return collectListings(ps);
+        } catch (SQLException ex) {
+            throw new StorageException("getAllActiveBrowseListings failed: " + ex.getMessage(), ex);
         }
     }
 
@@ -275,6 +297,24 @@ public final class SQLiteAuctionStorage implements AuctionStorage {
             }
         } catch (SQLException ex) {
             throw new StorageException("countActiveBrowse failed: " + ex.getMessage(), ex);
+        }
+    }
+
+    @Override
+    public int deleteTerminalListingsOlderThan(long createdBeforeMillis) throws StorageException {
+        String sql = """
+                DELETE FROM auction_listings
+                WHERE status IN (?, ?, ?, ?) AND created_at < ?
+                """;
+        try (PreparedStatement ps = requireConnection().prepareStatement(sql)) {
+            ps.setString(1, AuctionListingStatus.SOLD.name());
+            ps.setString(2, AuctionListingStatus.EXPIRED.name());
+            ps.setString(3, AuctionListingStatus.CANCELLED.name());
+            ps.setString(4, AuctionListingStatus.REMOVED.name());
+            ps.setLong(5, createdBeforeMillis);
+            return ps.executeUpdate();
+        } catch (SQLException ex) {
+            throw new StorageException("deleteTerminalListingsOlderThan failed: " + ex.getMessage(), ex);
         }
     }
 

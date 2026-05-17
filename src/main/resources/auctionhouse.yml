@@ -69,6 +69,10 @@ cleanup:
   # The scan is idempotent: even if it runs twice in parallel, a listing
   # can only be moved into collect storage once.
   expire-check-interval-seconds: 60
+  # V2.5: /ah admin cleanup removes historical listing rows (SOLD,
+  # EXPIRED, CANCELLED, REMOVED) whose created_at is older than this many
+  # days. ACTIVE listings and collect storage are never touched.
+  old-listing-retention-days: 30
 
 browse:
   # Number of listings shown per /ah browse page in chat. Clamped to
@@ -113,6 +117,11 @@ gui:
     use-anvil-price-input: true
     return-to-main-after-create: false
     open-listings-after-create: true
+  # V2.5: Marktplatz (Browse) — Sortierung, Aktualisieren, Textsuche (/ah search)
+  browse:
+    default-sort: newest
+    show-refresh-button: true
+    show-sort-button: true
 
 # Verbose logging for AH operations (listing create/cancel/expire,
 # storage init, transaction outcomes). Off by default.

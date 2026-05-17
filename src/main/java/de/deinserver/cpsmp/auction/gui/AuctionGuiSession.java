@@ -1,5 +1,6 @@
 package de.deinserver.cpsmp.auction.gui;
 
+import de.deinserver.cpsmp.auction.AuctionBrowseSort;
 import de.deinserver.cpsmp.auction.AuctionCollectItem;
 import de.deinserver.cpsmp.auction.AuctionListing;
 import org.bukkit.inventory.Inventory;
@@ -80,6 +81,15 @@ public final class AuctionGuiSession implements InventoryHolder {
     private Screen confirmReturnScreen = Screen.BROWSE;
 
     private int confirmReturnPage = 1;
+
+    /**
+     * Browse screen: explicit null means “use {@link AuctionConfig#getGuiBrowseDefaultSort}”.
+     */
+    @Nullable
+    private AuctionBrowseSort browseSort;
+
+    @Nullable
+    private String browseSearchFilter;
 
     public AuctionGuiSession(UUID playerId) {
         this.playerId = playerId;
@@ -215,5 +225,36 @@ public final class AuctionGuiSession implements InventoryHolder {
 
     public void setConfirmReturnPage(int confirmReturnPage) {
         this.confirmReturnPage = Math.max(1, confirmReturnPage);
+    }
+
+    public AuctionBrowseSort effectiveBrowseSort(AuctionBrowseSort configDefault) {
+        return browseSort != null ? browseSort : configDefault;
+    }
+
+    @Nullable
+    public AuctionBrowseSort getBrowseSortOverride() {
+        return browseSort;
+    }
+
+    public void setBrowseSort(@Nullable AuctionBrowseSort browseSort) {
+        this.browseSort = browseSort;
+    }
+
+    public void cycleBrowseSort(AuctionBrowseSort configDefault) {
+        AuctionBrowseSort cur = effectiveBrowseSort(configDefault);
+        this.browseSort = cur.next();
+    }
+
+    @Nullable
+    public String getBrowseSearchFilter() {
+        return browseSearchFilter;
+    }
+
+    public void setBrowseSearchFilter(@Nullable String query) {
+        if (query == null || query.isBlank()) {
+            this.browseSearchFilter = null;
+        } else {
+            this.browseSearchFilter = query.trim();
+        }
     }
 }

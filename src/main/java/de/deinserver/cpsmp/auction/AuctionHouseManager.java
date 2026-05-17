@@ -562,39 +562,67 @@ public final class AuctionHouseManager {
     }
 
     /**
-     * Fetches a page of ACTIVE non-expired listings (newest first) for
-     * {@code /ah browse}. Filtering of expired rows is done in SQL so
-     * the visible market always matches what the buy flow will accept.
-     *
-     * @param requestedPage 1-indexed page number; clamped to {@code [1, totalPages]}
-     *                      when listings exist, or returned as-is on an empty market
+     * Fetches a page of ACTIVE non-expired listings for {@code /ah browse}.
+     * Newest-first, no search filter — equivalent to
+     * {@link #browseListings(int, int, AuctionBrowseSort, String)} with
+     * {@link AuctionBrowseSort#NEWEST} and no query.
      */
     public CompletableFuture<BrowsePage> browseListings(int requestedPage) {
-        return browseListings(requestedPage, config.getBrowsePageSize());
+        return browseListings(requestedPage, config.getBrowsePageSize(),
+                AuctionBrowseSort.NEWEST, null);
     }
 
     /**
-     * Same as {@link #browseListings(int)} but with an explicit page
-     * size. Used by the V2.3 GUI, whose grid size is independent of the
-     * text-mode {@code browse.page-size}.
+     * Same as {@link #browseListings(int)} with an explicit page size.
      */
     public CompletableFuture<BrowsePage> browseListings(int requestedPage, int pageSize) {
+        return browseListings(requestedPage, pageSize, AuctionBrowseSort.NEWEST, null);
+    }
+
+    /**
+     * Browse / search with sort and optional case-insensitive substring filter
+     * (seller name, material name, item display name). All heavy work stays
+     * on the DB executor.
+     */
+    public CompletableFuture<BrowsePage> browseListings(int requestedPage,
+                                                        int pageSize,
+                                                        AuctionBrowseSort sort,
+                                                        @Nullable String searchQuery) {
         if (!active) {
             return CompletableFuture.completedFuture(BrowsePage.empty(requestedPage));
         }
+        AuctionBrowseSort effectiveSort = sort != null ? sort : AuctionBrowseSort.NEWEST;
         int effectivePageSize = Math.max(1, pageSize);
         long now = System.currentTimeMillis();
         CompletableFuture<BrowsePage> out = new CompletableFuture<>();
+        String q = searchQuery == null ? null : searchQuery.trim();
+        final boolean useSearch = q != null && !q.isEmpty();
         runDb(() -> {
-            int total = storage.countActiveBrowse(now);
+            if (!useSearch) {
+                int total = storage.countActiveBrowse(now);
+                if (total == 0) {
+                    return new BrowsePage(List.of(), 1, 1, 0, effectivePageSize);
+                }
+                int totalPages = (total + effectivePageSize - 1) / effectivePageSize;
+                int page = Math.max(1, Math.min(requestedPage, totalPages));
+                int offset = (page - 1) * effectivePageSize;
+                List<AuctionListing> rows = storage.getActiveBrowsePage(now, offset,
+                        effectivePageSize, effectiveSort);
+                return new BrowsePage(rows, page, totalPages, total, effectivePageSize);
+            }
+            List<AuctionListing> all = storage.getAllActiveBrowseListings(now);
+            List<AuctionListing> filtered = AuctionListingSearch.filter(all, q);
+            AuctionListingSearch.sort(filtered, effectiveSort);
+            int total = filtered.size();
             if (total == 0) {
                 return new BrowsePage(List.of(), 1, 1, 0, effectivePageSize);
             }
             int totalPages = (total + effectivePageSize - 1) / effectivePageSize;
             int page = Math.max(1, Math.min(requestedPage, totalPages));
-            int offset = (page - 1) * effectivePageSize;
-            List<AuctionListing> rows = storage.getActiveBrowsePage(now, offset, effectivePageSize);
-            return new BrowsePage(rows, page, totalPages, total, effectivePageSize);
+            int from = (page - 1) * effectivePageSize;
+            int to = Math.min(from + effectivePageSize, total);
+            return new BrowsePage(filtered.subList(from, to), page, totalPages, total,
+                    effectivePageSize);
         }).whenComplete((page, ex) -> runOnMain(() -> {
             if (ex != null) {
                 logStorage("browseListings", ex);
@@ -603,6 +631,29 @@ public final class AuctionHouseManager {
             }
             out.complete(page);
         }));
+        return out;
+    }
+
+    /**
+     * Removes terminal listing rows older than the configured retention.
+     * Never deletes ACTIVE listings or collect storage.
+     */
+    public CompletableFuture<Integer> adminCleanupOldTerminalListings() {
+        if (!active) {
+            return CompletableFuture.completedFuture(0);
+        }
+        long cutoff = System.currentTimeMillis()
+                - config.getCleanupOldListingRetentionDays() * 86_400_000L;
+        CompletableFuture<Integer> out = new CompletableFuture<>();
+        runDb(() -> storage.deleteTerminalListingsOlderThan(cutoff))
+                .whenComplete((n, ex) -> runOnMain(() -> {
+                    if (ex != null) {
+                        logStorage("adminCleanupOldTerminalListings", ex);
+                        out.complete(0);
+                        return;
+                    }
+                    out.complete(n != null ? n : 0);
+                }));
         return out;
     }
 

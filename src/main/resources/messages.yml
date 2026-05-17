@@ -126,8 +126,9 @@ auction:
   help-cancel: "<gray> <yellow>/ah cancel <ID></yellow> <dark_gray>-</dark_gray> Eigenes Angebot zurueckziehen.</gray>"
   help-collect: "<gray> <yellow>/ah collect</yellow> <dark_gray>-</dark_gray> Bereitgestellte Items abholen.</gray>"
   help-browse: "<gray> <yellow>/ah browse [Seite]</yellow> <dark_gray>-</dark_gray> Aktive Angebote im Markt durchstoebern.</gray>"
+  help-search: "<gray> <yellow>/ah search <Text></yellow> <dark_gray>-</dark_gray> Angebote durchsuchen (Name, Material, Verkaeufer).</gray>"
   help-buy: "<gray> <yellow>/ah buy <ID></yellow> <dark_gray>-</dark_gray> Ein aktives Angebot kaufen.</gray>"
-  help-admin: "<gray> <yellow>/ah admin <remove|info|reload></yellow></gray>"
+  help-admin: "<gray> <yellow>/ah admin <remove|info|reload|cleanup></yellow></gray>"
   # /ah sell
   invalid-price: "<red>Ungueltiger Preis.</red>"
   price-too-low: "<red>Preis zu niedrig. Mindestens <yellow>{min}</yellow>.</red>"
@@ -153,6 +154,14 @@ auction:
   browse-header: "<gradient:#5BCEFA:#F5A9B8><bold>Auktionen</bold></gradient> <dark_gray>|</dark_gray> <gray>Seite <yellow>{page}</yellow>/<yellow>{pages}</yellow> <dark_gray>(<yellow>{total}</yellow> aktiv)</dark_gray></gray>"
   browse-entry: "<gray> <yellow>#{id}</yellow> <dark_gray>|</dark_gray> {item} x<yellow>{amount}</yellow> <dark_gray>|</dark_gray> <yellow>{price}</yellow> <dark_gray>|</dark_gray> Verkaeufer: <yellow>{seller}</yellow> <dark_gray>|</dark_gray> <gray>laeuft ab in <yellow>{time}</yellow></gray></gray>"
   browse-page: "<gray>Naechste Seite: <yellow>/ah browse {next}</yellow> <dark_gray>(<yellow>{pages}</yellow> insgesamt)</dark_gray></gray>"
+  search-usage: "<gray>Nutzung: <yellow>/ah search <Suchbegriff></yellow></gray>"
+  search-empty: "<gray>Keine passenden Angebote gefunden.</gray>"
+  search-header: "<gray>Suche: <yellow>{query}</yellow></gray>"
+  sort-newest: "Neueste zuerst"
+  sort-oldest: "Aelteste zuerst"
+  sort-price-asc: "Preis aufsteigend"
+  sort-price-desc: "Preis absteigend"
+  sort-expiring: "Laeuft bald ab"
   # /ah buy (V2.2)
   buy-usage: "<gray>Nutzung: <yellow>/ah buy <ID></yellow></gray>"
   buy-not-found: "<red>Dieses Angebot existiert nicht.</red>"
@@ -171,7 +180,8 @@ auction:
   # automatisch zurueckgerollt wurde. Dein Geld ist wieder bei dir.
   seller-payout-failed: "<red>Transaktion fehlgeschlagen: Auszahlung an den Verkaeufer war nicht moeglich. Dein Geld wurde zurueckerstattet.</red>"
   # /ah admin
-  admin-usage: "<gray>Nutzung: <yellow>/ah admin <remove <ID>|info|reload></yellow></gray>"
+  admin-usage: "<gray>Nutzung: <yellow>/ah admin <remove <ID>|info|reload|cleanup></yellow></gray>"
+  admin-cleanup-complete: "<green>Datenbank-Aufraeumen abgeschlossen.</green> <dark_gray>(<yellow>{count}</yellow> Eintraege entfernt)</dark_gray>"
   admin-removed: "<green>Angebot entfernt.</green> <dark_gray>(ID <yellow>{id}</yellow>, Verkaeufer <yellow>{seller}</yellow>; Item im Abholfach des Verkaeufers)</dark_gray>"
   admin-info-header: "<gradient:#5BCEFA:#F5A9B8><bold>Auktionshaus</bold></gradient>"
   admin-info-state: "<gray>Aktiv: <yellow>{state}</yellow> <dark_gray>|</dark_gray> Status: <yellow>{reason}</yellow></gray>"
@@ -197,6 +207,11 @@ auction:
     confirm-title: "<gradient:#5BCEFA:#F5A9B8><bold>Kauf bestaetigen</bold></gradient>"
 
     button-browse: "<white>Auktionen ansehen</white>"
+    button-sort: "<white>Sortieren</white>"
+    button-refresh: "<white>Aktualisieren</white>"
+    current-sort: "<gray>Aktuell: <white>{sort}</white></gray>"
+    no-auctions-title: "<white>Keine Auktionen gefunden</white>"
+    no-auctions-lore: "<gray>Schau spaeter wieder vorbei.</gray>"
     button-listings: "<white>Meine Angebote</white>"
     button-collect: "<white>Items abholen</white>"
     button-info: "<white>Informationen</white>"

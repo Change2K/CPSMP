@@ -75,10 +75,28 @@ public interface AuctionStorage {
      * {@code expires_at} is in the past so the buyer never sees a
      * listing they cannot legitimately buy.
      */
-    List<AuctionListing> getActiveBrowsePage(long now, int offset, int limit) throws StorageException;
+    List<AuctionListing> getActiveBrowsePage(long now,
+                                             int offset,
+                                             int limit,
+                                             AuctionBrowseSort sort) throws StorageException;
+
+    /**
+     * Every ACTIVE listing with {@code expires_at &gt; now}. Used for
+     * text/GUI search filters (in-memory filter on the DB thread).
+     */
+    List<AuctionListing> getAllActiveBrowseListings(long now) throws StorageException;
 
     /** Counts ACTIVE non-expired listings. Drives the browse pagination. */
     int countActiveBrowse(long now) throws StorageException;
+
+    /**
+     * Deletes terminal listing rows whose {@code created_at} is strictly
+     * older than {@code createdBeforeMillis}. Never touches ACTIVE rows or
+     * {@code auction_collect_items}.
+     *
+     * @return number of rows deleted
+     */
+    int deleteTerminalListingsOlderThan(long createdBeforeMillis) throws StorageException;
 
     /**
      * Atomically transitions a listing from {@code fromStatus} to

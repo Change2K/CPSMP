@@ -61,6 +61,12 @@ public final class AuctionConfig {
     private final boolean guiSellReturnToMainAfterCreate;
     private final boolean guiSellOpenListingsAfterCreate;
 
+    private final AuctionBrowseSort guiBrowseDefaultSort;
+    private final boolean guiBrowseShowRefreshButton;
+    private final boolean guiBrowseShowSortButton;
+
+    private final int cleanupOldListingRetentionDays;
+
     private final boolean debug;
 
     public AuctionConfig(FileConfiguration cfg, Logger logger) {
@@ -138,6 +144,14 @@ public final class AuctionConfig {
         this.guiSellUseAnvilPriceInput = cfg.getBoolean("gui.sell.use-anvil-price-input", true);
         this.guiSellReturnToMainAfterCreate = cfg.getBoolean("gui.sell.return-to-main-after-create", false);
         this.guiSellOpenListingsAfterCreate = cfg.getBoolean("gui.sell.open-listings-after-create", true);
+
+        this.guiBrowseDefaultSort = AuctionBrowseSort.fromConfig(
+                cfg.getString("gui.browse.default-sort", "newest"));
+        this.guiBrowseShowRefreshButton = cfg.getBoolean("gui.browse.show-refresh-button", true);
+        this.guiBrowseShowSortButton = cfg.getBoolean("gui.browse.show-sort-button", true);
+
+        int rawRetention = cfg.getInt("cleanup.old-listing-retention-days", 30);
+        this.cleanupOldListingRetentionDays = Math.max(1, Math.min(rawRetention, 3650));
 
         this.debug = cfg.getBoolean("debug", false);
     }
@@ -256,6 +270,22 @@ public final class AuctionConfig {
 
     public boolean isGuiSellOpenListingsAfterCreate() {
         return guiSellOpenListingsAfterCreate;
+    }
+
+    public AuctionBrowseSort getGuiBrowseDefaultSort() {
+        return guiBrowseDefaultSort;
+    }
+
+    public boolean isGuiBrowseShowRefreshButton() {
+        return guiBrowseShowRefreshButton;
+    }
+
+    public boolean isGuiBrowseShowSortButton() {
+        return guiBrowseShowSortButton;
+    }
+
+    public int getCleanupOldListingRetentionDays() {
+        return cleanupOldListingRetentionDays;
     }
 
     public boolean isDebug() {

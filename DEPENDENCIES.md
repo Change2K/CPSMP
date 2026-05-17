@@ -74,7 +74,8 @@ message and disables itself without taking the rest of CPSMP down.
 | **Auction House (V2.1)** - selling with no fee and `require-economy-for-auction-house: false` | None |
 | **Auction House (V2.2)** - buying (`/ah buy`, including the offline-seller payout) | A Vault-compatible economy setup (Vault + one provider) - hard requirement; `/ah buy` refuses with `auction.economy-required` when no bridge is available |
 | **Auction House (V2.2)** - browsing (`/ah browse`) | None |
-| **Auction House (V2.3+)** - premium German GUI (`/ah` hub, browse/listings/collect, buy confirm, V2.4 sell + anvil price) | None beyond the backend tier above; listing creation still uses `AuctionHouseManager` with Paper's `Player#openAnvil` + `AnvilView` for rename-based price input |
+| **Auction House (V2.2+)** - search (`/ah search`, optional GUI-filtered browse) | None beyond the backend tier above; search with an active filter scans ACTIVE rows on the AH DB thread |
+| **Auction House (V2.3+)** - premium German GUI (`/ah` hub, browse/listings/collect, buy confirm, V2.4 sell + anvil price, V2.5 browse sort/refresh/search) | None beyond the backend tier above; listing creation uses `AuctionHouseManager` with Paper's `Player#openAnvil` + `AnvilView` for rename-based price input |
 
 ---
 

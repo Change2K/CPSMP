@@ -2,6 +2,7 @@ package de.deinserver.cpsmp.auction;
 
 import de.deinserver.cpsmp.CPSMPPlugin;
 import de.deinserver.cpsmp.MessageManager;
+import de.deinserver.cpsmp.auction.AuctionBrowseSort;
 import de.deinserver.cpsmp.auction.gui.AuctionGuiManager;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.command.Command;
@@ -15,6 +16,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -31,10 +33,12 @@ import java.util.Map;
  *     <li>{@code /ah cancel <id>} - cancel one of your listings</li>
  *     <li>{@code /ah collect} - retrieve everything from collect storage</li>
  *     <li>{@code /ah browse [page]} - browse the market (V2.2)</li>
+ *     <li>{@code /ah search <text>} - search active listings (V2.5)</li>
  *     <li>{@code /ah buy <id>} - buy an active listing (V2.2)</li>
  *     <li>{@code /ah admin remove <id>} - remove any listing (perm: cpsmp.ah.admin)</li>
  *     <li>{@code /ah admin info} - backend status</li>
  *     <li>{@code /ah admin reload} - reload AH config + messages</li>
+ *     <li>{@code /ah admin cleanup} - delete old historic listing rows (V2.5)</li>
  * </ul>
  *
  * <p>V2.3: bare {@code /ah} now opens the premium German GUI. Every
@@ -47,9 +51,9 @@ import java.util.Map;
 public final class AuctionCommand implements CommandExecutor, TabCompleter {
 
     private static final List<String> ROOT = List.of(
-            "sell", "listings", "cancel", "collect", "browse", "buy", "admin");
+            "sell", "listings", "cancel", "collect", "browse", "search", "buy", "admin");
     private static final List<String> ADMIN_ACTIONS = List.of(
-            "remove", "info", "reload");
+            "remove", "info", "reload", "cleanup");
 
     private final CPSMPPlugin plugin;
     private final AuctionHouseManager auction;
@@ -94,6 +98,7 @@ public final class AuctionCommand implements CommandExecutor, TabCompleter {
             case "cancel" -> handleCancel(sender, args);
             case "collect" -> handleCollect(sender);
             case "browse" -> handleBrowse(sender, args);
+            case "search" -> handleSearch(sender, args);
             case "buy" -> handleBuy(sender, args);
             case "admin" -> handleAdmin(sender, args);
             case "help" -> {
@@ -113,6 +118,7 @@ public final class AuctionCommand implements CommandExecutor, TabCompleter {
         MessageManager m = plugin.getMessageManager();
         m.sendPrefixed(sender, "auction.help");
         m.sendPrefixed(sender, "auction.help-browse");
+        m.sendPrefixed(sender, "auction.help-search");
         m.sendPrefixed(sender, "auction.help-buy");
         m.sendPrefixed(sender, "auction.help-sell");
         m.sendPrefixed(sender, "auction.help-listings");
@@ -303,6 +309,65 @@ public final class AuctionCommand implements CommandExecutor, TabCompleter {
         return true;
     }
 
+    // ---------------------------------------------------------------- /ah search
+
+    private boolean handleSearch(CommandSender sender, String[] args) {
+        MessageManager m = plugin.getMessageManager();
+        if (!sender.hasPermission(AuctionPermission.BROWSE)) {
+            m.sendPrefixed(sender, "auction.no-permission");
+            return true;
+        }
+        if (args.length < 2) {
+            m.sendPrefixed(sender, "auction.search-usage");
+            return true;
+        }
+        String query = String.join(" ", Arrays.copyOfRange(args, 1, args.length)).trim();
+        if (query.isEmpty()) {
+            m.sendPrefixed(sender, "auction.search-usage");
+            return true;
+        }
+        if (sender instanceof Player player && gui != null && gui.isEnabled()) {
+            if (!auction.isActive()) {
+                m.sendPrefixed(player, "auction.disabled");
+                return true;
+            }
+            gui.openBrowseWithSearchFilter(player, query);
+            m.sendPrefixed(player, "auction.search-header", Map.of("query", query));
+            return true;
+        }
+        m.sendPrefixed(sender, "auction.search-header", Map.of("query", query));
+        auction.browseListings(1, auction.getConfig().getBrowsePageSize(),
+                AuctionBrowseSort.NEWEST, query).thenAccept(page -> {
+            if (page.totalListings() == 0) {
+                m.sendPrefixed(sender, "auction.search-empty");
+                return;
+            }
+            m.sendPrefixed(sender, "auction.browse-header", Map.of(
+                    "page", Integer.toString(page.page()),
+                    "pages", Integer.toString(page.totalPages()),
+                    "total", Integer.toString(page.totalListings())
+            ));
+            long now = System.currentTimeMillis();
+            for (AuctionListing listing : page.listings()) {
+                Map<String, String> ph = new HashMap<>();
+                ph.put("id", Long.toString(listing.listingId()));
+                ph.put("item", describeItem(listing.itemStack()));
+                ph.put("amount", Integer.toString(listing.itemStack().getAmount()));
+                ph.put("price", auction.formatPrice(listing.price()));
+                ph.put("seller", listing.sellerName() != null ? listing.sellerName() : "-");
+                ph.put("time", AuctionTimeFormatter.formatRemaining(listing.remainingMillis(now)));
+                m.sendPrefixed(sender, "auction.browse-entry", ph);
+            }
+            if (page.page() < page.totalPages()) {
+                m.sendPrefixed(sender, "auction.browse-page", Map.of(
+                        "next", Integer.toString(page.page() + 1),
+                        "pages", Integer.toString(page.totalPages())
+                ));
+            }
+        });
+        return true;
+    }
+
     // ------------------------------------------------------------------ /ah buy
 
     private boolean handleBuy(CommandSender sender, String[] args) {
@@ -367,6 +432,7 @@ public final class AuctionCommand implements CommandExecutor, TabCompleter {
             case "remove" -> handleAdminRemove(sender, args);
             case "info" -> handleAdminInfo(sender);
             case "reload" -> handleAdminReload(sender);
+            case "cleanup" -> handleAdminCleanup(sender);
             default -> {
                 m.sendPrefixed(sender, "auction.admin-usage");
                 yield true;
@@ -448,6 +514,14 @@ public final class AuctionCommand implements CommandExecutor, TabCompleter {
         return true;
     }
 
+    private boolean handleAdminCleanup(CommandSender sender) {
+        MessageManager m = plugin.getMessageManager();
+        auction.adminCleanupOldTerminalListings().thenAccept(n ->
+                m.sendPrefixed(sender, "auction.admin-cleanup-complete",
+                        Map.of("count", Integer.toString(n))));
+        return true;
+    }
+
     // ------------------------------------------------------- helpers / tab-comp
 
     @Nullable
@@ -495,6 +569,7 @@ public final class AuctionCommand implements CommandExecutor, TabCompleter {
             }
             if (!sender.hasPermission(AuctionPermission.BROWSE)) {
                 options.remove("browse");
+                options.remove("search");
             }
             if (!sender.hasPermission(AuctionPermission.BUY)) {
                 options.remove("buy");

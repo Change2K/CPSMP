@@ -2,6 +2,7 @@ package de.deinserver.cpsmp.auction.gui;
 
 import de.deinserver.cpsmp.CPSMPPlugin;
 import de.deinserver.cpsmp.MessageManager;
+import de.deinserver.cpsmp.auction.AuctionBrowseSort;
 import de.deinserver.cpsmp.auction.AuctionCollectItem;
 import de.deinserver.cpsmp.auction.AuctionConfig;
 import de.deinserver.cpsmp.auction.AuctionHouseManager;
@@ -72,6 +73,8 @@ public final class AuctionGuiManager {
     // -------- Browse / Listings / Collect navigation row layout ------------
 
     private static final int NAV_ROW_OFFSET_BACK = 0;        // slot 45 on a 6-row GUI
+    private static final int NAV_ROW_OFFSET_REFRESH = 1;     // V2.5
+    private static final int NAV_ROW_OFFSET_SORT = 2;      // V2.5
     private static final int NAV_ROW_OFFSET_PREV = 3;        // slot 48
     private static final int NAV_ROW_OFFSET_PAGE = 4;        // slot 49
     private static final int NAV_ROW_OFFSET_NEXT = 5;        // slot 50
@@ -162,6 +165,21 @@ public final class AuctionGuiManager {
         AuctionGuiSession session = ensureSession(player);
         session.setCurrentPage(page);
         loadBrowseAndOpen(player, session, page);
+    }
+
+    /**
+     * Opens browse with a substring filter (same semantics as /ah search).
+     */
+    public void openBrowseWithSearchFilter(Player player, String query) {
+        if (!checkGuiOrFallback(player)) return;
+        if (!player.hasPermission(AuctionPermission.BROWSE)) {
+            messages.sendPrefixed(player, "auction.no-permission");
+            return;
+        }
+        AuctionGuiSession session = ensureSession(player);
+        session.setBrowseSearchFilter(query);
+        session.setCurrentPage(1);
+        loadBrowseAndOpen(player, session, 1);
     }
 
     public void openListings(Player player, int page) {
@@ -321,7 +339,10 @@ public final class AuctionGuiManager {
     private void handleClickMain(Player player, AuctionGuiSession session, int slot) {
         AuctionConfig cfg = auction.getConfig();
         switch (slot) {
-            case MAIN_SLOT_BROWSE -> openBrowse(player, 1);
+            case MAIN_SLOT_BROWSE -> {
+                ensureSession(player).setBrowseSearchFilter(null);
+                openBrowse(player, 1);
+            }
             case MAIN_SLOT_SELL -> {
                 if (!cfg.isGuiSellEnabled()) {
                     return;
@@ -353,7 +374,9 @@ public final class AuctionGuiManager {
         AuctionConfig cfg = auction.getConfig();
         int rows = cfg.getGuiRowsBrowse();
         int gridSlots = (rows - 1) * 9;
-        auction.browseListings(page, gridSlots).thenAccept(browsePage -> {
+        AuctionBrowseSort sort = session.effectiveBrowseSort(cfg.getGuiBrowseDefaultSort());
+        String q = session.getBrowseSearchFilter();
+        auction.browseListings(page, gridSlots, sort, q).thenAccept(browsePage -> {
             if (!player.isOnline()) return;
             session.setVisibleListings(browsePage.listings());
             session.setCurrentPage(browsePage.page());
@@ -369,7 +392,7 @@ public final class AuctionGuiManager {
         Inventory inv = createInventory(session, size, "auction.gui.browse-title");
         fill(inv, cfg);
         if (browsePage.totalListings() == 0) {
-            inv.setItem(size / 2, items.emptyStateTile("auction.gui.no-auctions"));
+            inv.setItem(size / 2, items.browseEmptyPlaceholder());
         } else {
             long now = System.currentTimeMillis();
             boolean allowOwn = cfg.isAllowOwnPurchase();
@@ -379,8 +402,34 @@ public final class AuctionGuiManager {
                 inv.setItem(i, items.browseTile(browsePage.listings().get(i), viewer, allowOwn, now));
             }
         }
-        applyNavRow(inv, rows, browsePage.page(), browsePage.totalPages());
+        applyBrowseNavRow(inv, rows, browsePage, session, cfg);
         return inv;
+    }
+
+    private void applyBrowseNavRow(Inventory inv,
+                                   int rows,
+                                   AuctionHouseManager.BrowsePage browsePage,
+                                   AuctionGuiSession session,
+                                   AuctionConfig cfg) {
+        int navBase = (rows - 1) * 9;
+        int page = browsePage.page();
+        int totalPages = browsePage.totalPages();
+        inv.setItem(navBase + NAV_ROW_OFFSET_BACK, items.backButton());
+        if (cfg.isGuiBrowseShowRefreshButton()) {
+            inv.setItem(navBase + NAV_ROW_OFFSET_REFRESH, items.browseRefreshButton());
+        }
+        if (cfg.isGuiBrowseShowSortButton()) {
+            AuctionBrowseSort eff = session.effectiveBrowseSort(cfg.getGuiBrowseDefaultSort());
+            inv.setItem(navBase + NAV_ROW_OFFSET_SORT, items.browseSortButton(eff));
+        }
+        if (page > 1) {
+            inv.setItem(navBase + NAV_ROW_OFFSET_PREV, items.previousPageButton(page - 1));
+        }
+        inv.setItem(navBase + NAV_ROW_OFFSET_PAGE, items.pageIndicator(page, totalPages));
+        if (page < totalPages) {
+            inv.setItem(navBase + NAV_ROW_OFFSET_NEXT, items.nextPageButton(page + 1));
+        }
+        inv.setItem(navBase + NAV_ROW_OFFSET_CLOSE, items.closeButton());
     }
 
     private void handleClickBrowse(Player player, AuctionGuiSession session, int slot) {
@@ -390,6 +439,15 @@ public final class AuctionGuiManager {
         int navBase = (rows - 1) * 9;
         if (slot == navBase + NAV_ROW_OFFSET_BACK) {
             openMain(player);
+            return;
+        }
+        if (cfg.isGuiBrowseShowRefreshButton() && slot == navBase + NAV_ROW_OFFSET_REFRESH) {
+            loadBrowseAndOpen(player, session, session.getCurrentPage());
+            return;
+        }
+        if (cfg.isGuiBrowseShowSortButton() && slot == navBase + NAV_ROW_OFFSET_SORT) {
+            session.cycleBrowseSort(cfg.getGuiBrowseDefaultSort());
+            loadBrowseAndOpen(player, session, 1);
             return;
         }
         if (slot == navBase + NAV_ROW_OFFSET_PREV && session.getCurrentPage() > 1) {
