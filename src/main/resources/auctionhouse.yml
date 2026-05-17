@@ -63,6 +63,12 @@ cleanup:
   # can only be moved into collect storage once.
   expire-check-interval-seconds: 60
 
+browse:
+  # Number of listings shown per /ah browse page. Clamped to [3, 50]
+  # so the text overview stays readable in chat. The premium GUI in
+  # V2.3 will pick its own grid size and ignore this value.
+  page-size: 8
+
 # Verbose logging for AH operations (listing create/cancel/expire,
 # storage init, transaction outcomes). Off by default.
 debug: false

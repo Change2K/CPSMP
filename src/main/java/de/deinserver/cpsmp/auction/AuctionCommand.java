@@ -29,19 +29,21 @@ import java.util.Map;
  *     <li>{@code /ah listings} - your own active listings</li>
  *     <li>{@code /ah cancel <id>} - cancel one of your listings</li>
  *     <li>{@code /ah collect} - retrieve everything from collect storage</li>
+ *     <li>{@code /ah browse [page]} - browse the market (V2.2)</li>
+ *     <li>{@code /ah buy <id>} - buy an active listing (V2.2)</li>
  *     <li>{@code /ah admin remove <id>} - remove any listing (perm: cpsmp.ah.admin)</li>
  *     <li>{@code /ah admin info} - backend status</li>
  *     <li>{@code /ah admin reload} - reload AH config + messages</li>
  * </ul>
  *
- * <p>V2.1 is intentionally text-only. The premium GUI lands in a later
- * release; this command stays so the backend can be exercised and so
+ * <p>V2.2 keeps the command text-only. The premium browse/buy GUI lands
+ * in V2.3; this command stays so the backend can be exercised and so
  * console / admins always have a non-GUI path to the same operations.
  */
 public final class AuctionCommand implements CommandExecutor, TabCompleter {
 
     private static final List<String> ROOT = List.of(
-            "sell", "listings", "cancel", "collect", "admin");
+            "sell", "listings", "cancel", "collect", "browse", "buy", "admin");
     private static final List<String> ADMIN_ACTIONS = List.of(
             "remove", "info", "reload");
 
@@ -71,6 +73,8 @@ public final class AuctionCommand implements CommandExecutor, TabCompleter {
             case "listings" -> handleListings(sender);
             case "cancel" -> handleCancel(sender, args);
             case "collect" -> handleCollect(sender);
+            case "browse" -> handleBrowse(sender, args);
+            case "buy" -> handleBuy(sender, args);
             case "admin" -> handleAdmin(sender, args);
             case "help" -> {
                 sendHelp(sender);
@@ -88,6 +92,8 @@ public final class AuctionCommand implements CommandExecutor, TabCompleter {
     private void sendHelp(CommandSender sender) {
         MessageManager m = plugin.getMessageManager();
         m.sendPrefixed(sender, "auction.help");
+        m.sendPrefixed(sender, "auction.help-browse");
+        m.sendPrefixed(sender, "auction.help-buy");
         m.sendPrefixed(sender, "auction.help-sell");
         m.sendPrefixed(sender, "auction.help-listings");
         m.sendPrefixed(sender, "auction.help-cancel");
@@ -228,6 +234,102 @@ public final class AuctionCommand implements CommandExecutor, TabCompleter {
         return true;
     }
 
+    // --------------------------------------------------------------- /ah browse
+
+    private boolean handleBrowse(CommandSender sender, String[] args) {
+        MessageManager m = plugin.getMessageManager();
+        if (!sender.hasPermission(AuctionPermission.BROWSE)) {
+            m.sendPrefixed(sender, "auction.no-permission");
+            return true;
+        }
+        int requestedPage = 1;
+        if (args.length >= 2) {
+            try {
+                requestedPage = Math.max(1, Integer.parseInt(args[1].trim()));
+            } catch (NumberFormatException ex) {
+                m.sendPrefixed(sender, "auction.help-browse");
+                return true;
+            }
+        }
+        final int rp = requestedPage;
+        auction.browseListings(rp).thenAccept(page -> {
+            if (page.totalListings() == 0) {
+                m.sendPrefixed(sender, "auction.browse-empty");
+                return;
+            }
+            m.sendPrefixed(sender, "auction.browse-header", Map.of(
+                    "page", Integer.toString(page.page()),
+                    "pages", Integer.toString(page.totalPages()),
+                    "total", Integer.toString(page.totalListings())
+            ));
+            long now = System.currentTimeMillis();
+            for (AuctionListing listing : page.listings()) {
+                Map<String, String> ph = new HashMap<>();
+                ph.put("id", Long.toString(listing.listingId()));
+                ph.put("item", describeItem(listing.itemStack()));
+                ph.put("amount", Integer.toString(listing.itemStack().getAmount()));
+                ph.put("price", auction.formatPrice(listing.price()));
+                ph.put("seller", listing.sellerName() != null ? listing.sellerName() : "-");
+                ph.put("time", AuctionTimeFormatter.formatRemaining(listing.remainingMillis(now)));
+                m.sendPrefixed(sender, "auction.browse-entry", ph);
+            }
+            if (page.page() < page.totalPages()) {
+                m.sendPrefixed(sender, "auction.browse-page", Map.of(
+                        "next", Integer.toString(page.page() + 1),
+                        "pages", Integer.toString(page.totalPages())
+                ));
+            }
+        });
+        return true;
+    }
+
+    // ------------------------------------------------------------------ /ah buy
+
+    private boolean handleBuy(CommandSender sender, String[] args) {
+        MessageManager m = plugin.getMessageManager();
+        if (!(sender instanceof Player player)) {
+            m.sendPrefixed(sender, "general.player-only");
+            return true;
+        }
+        if (!player.hasPermission(AuctionPermission.BUY)) {
+            m.sendPrefixed(player, "auction.no-permission");
+            return true;
+        }
+        if (args.length < 2) {
+            m.sendPrefixed(player, "auction.buy-usage");
+            return true;
+        }
+        Long id = parseListingId(args[1]);
+        if (id == null) {
+            m.sendPrefixed(player, "auction.buy-not-found");
+            return true;
+        }
+        auction.buyListing(player, id).thenAccept(result -> {
+            switch (result) {
+                case AuctionHouseManager.BuyResult.Success s -> {
+                    Map<String, String> ph = new HashMap<>();
+                    ph.put("id", Long.toString(s.listing().listingId()));
+                    ph.put("item", describeItem(s.listing().itemStack()));
+                    ph.put("amount", Integer.toString(s.listing().itemStack().getAmount()));
+                    ph.put("price", auction.formatPrice(s.price()));
+                    ph.put("tax", auction.formatPrice(s.tax()));
+                    ph.put("payout", auction.formatPrice(s.sellerPayout()));
+                    ph.put("seller", s.listing().sellerName() != null ? s.listing().sellerName() : "-");
+                    m.sendPrefixed(player, "auction.buy-success", ph);
+                    if (s.tax() > 0.0D) {
+                        m.sendPrefixed(player, "auction.sale-tax-info", ph);
+                    }
+                    if (s.inventoryFull()) {
+                        m.sendPrefixed(player, "auction.buy-inventory-full");
+                    }
+                }
+                case AuctionHouseManager.BuyResult.Failure f ->
+                        m.sendPrefixed(player, f.messageKey(), f.placeholders());
+            }
+        });
+        return true;
+    }
+
     // ---------------------------------------------------------------- /ah admin
 
     private boolean handleAdmin(CommandSender sender, String[] args) {
@@ -293,9 +395,13 @@ public final class AuctionCommand implements CommandExecutor, TabCompleter {
             ));
             m.sendPrefixed(sender, "auction.admin-info-counts", Map.of(
                     "active", Integer.toString(stats.activeListings()),
+                    "sold", Integer.toString(stats.soldListings()),
                     "expired", Integer.toString(stats.expiredListings()),
                     "cancelled", Integer.toString(stats.cancelledListings()),
                     "collect", Integer.toString(stats.collectItems())
+            ));
+            m.sendPrefixed(sender, "auction.admin-info-tax", Map.of(
+                    "percent", formatPercent(stats.saleTaxPercent())
             ));
             m.sendPrefixed(sender, "auction.admin-info-economy", Map.of(
                     "bridge", stats.economyBridge(),
@@ -304,6 +410,13 @@ public final class AuctionCommand implements CommandExecutor, TabCompleter {
             ));
         });
         return true;
+    }
+
+    private static String formatPercent(double value) {
+        if (value == Math.floor(value)) {
+            return Integer.toString((int) value);
+        }
+        return String.format(Locale.ROOT, "%.2f", value);
     }
 
     private boolean handleAdminReload(CommandSender sender) {
@@ -359,6 +472,12 @@ public final class AuctionCommand implements CommandExecutor, TabCompleter {
             List<String> options = new ArrayList<>(ROOT);
             if (!sender.hasPermission(AuctionPermission.ADMIN)) {
                 options.remove("admin");
+            }
+            if (!sender.hasPermission(AuctionPermission.BROWSE)) {
+                options.remove("browse");
+            }
+            if (!sender.hasPermission(AuctionPermission.BUY)) {
+                options.remove("buy");
             }
             return filter(options, args[0]);
         }

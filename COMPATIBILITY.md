@@ -114,16 +114,25 @@ still applies to everyone else.
   the `BukkitTeleportAdapter`.
 - **Homes, TPA and Claims are still out of scope** and planned for later
   versions.
-- **V2.1 Auction House backend is in place.** The `auction` package
-  ships the data model, an SQLite-backed `AuctionStorage`, an
-  idempotent `AuctionExpiryService`, the dupe-safe sell / cancel /
-  collect flows, and the text-only `/ah` command. The premium German
-  GUI, the buy flow, bidding, search and sort all land in later
-  releases. The Auction House talks to the existing `EconomyBridge`
-  only and never imports a specific economy plugin; see
-  [`DEPENDENCIES.md`](DEPENDENCIES.md).
+- **V2.2 Auction House backend covers sell, cancel, collect, expiry,
+  browse and buy.** The `auction` package ships the data model, an
+  SQLite-backed `AuctionStorage`, an idempotent `AuctionExpiryService`,
+  the dupe-safe sell / cancel / collect flows, the text-only
+  `/ah browse` paginator, and the race-safe `/ah buy` flow with sale
+  tax and inventory-full fallback. The premium German GUI, bidding,
+  search and sort all land in later releases. The Auction House talks
+  to the existing `EconomyBridge` only and never imports a specific
+  economy plugin; see [`DEPENDENCIES.md`](DEPENDENCIES.md).
 - **Auction House uses SQLite via Paper's `libraries:` loader.** No NMS
   or `org.bukkit.craftbukkit.*` is used. On Spigot / CraftBukkit the
   loader directive is ignored; the Auction House detects the missing
   JDBC driver during `init()`, logs a German error and disables itself
   without affecting spawn, RTP, portals, zones or the economy bridge.
+- **Race protection for `/ah buy` is enforced in SQL.** A single
+  `UPDATE auction_listings SET status='SOLD', buyer_uuid=?, buyer_name=?
+  WHERE listing_id=? AND status='ACTIVE' AND expires_at>?` atomically
+  claims the listing for one buyer. Concurrent buyers see zero
+  affected rows and receive the `auction.buy-already-sold` German
+  message. Withdraw / deposit failures roll back the claim via
+  `revertSoldIfBuyer(listing_id, buyer_uuid)`, which is itself guarded
+  so a stale rollback can never undo a later successful sale.

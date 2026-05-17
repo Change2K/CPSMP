@@ -70,6 +70,17 @@ public interface AuctionStorage {
     List<AuctionListing> getExpiredActiveListings(long now, int limit) throws StorageException;
 
     /**
+     * Returns a page of ACTIVE non-expired listings, newest first. Used
+     * by {@code /ah browse}. {@code now} filters out rows whose
+     * {@code expires_at} is in the past so the buyer never sees a
+     * listing they cannot legitimately buy.
+     */
+    List<AuctionListing> getActiveBrowsePage(long now, int offset, int limit) throws StorageException;
+
+    /** Counts ACTIVE non-expired listings. Drives the browse pagination. */
+    int countActiveBrowse(long now) throws StorageException;
+
+    /**
      * Atomically transitions a listing from {@code fromStatus} to
      * {@code toStatus}. Returns {@code true} only when exactly one row
      * was updated; {@code false} when the row didn't exist or was no
@@ -83,6 +94,39 @@ public interface AuctionStorage {
     boolean transitionListingStatus(long listingId,
                                     AuctionListingStatus fromStatus,
                                     AuctionListingStatus toStatus) throws StorageException;
+
+    /**
+     * Atomically claims an ACTIVE non-expired listing for {@code buyer}.
+     * Combines the status flip {@code ACTIVE -> SOLD} with writing the
+     * buyer UUID and name into the same row, in a single SQL UPDATE
+     * guarded by {@code WHERE status='ACTIVE' AND expires_at &gt; ?}.
+     *
+     * <p>This is the linchpin of the buy-flow race protection: the SQL
+     * engine serialises competing UPDATEs, and only one of them sees a
+     * matching row. The losers see zero affected rows and surface the
+     * {@code auction.buy-already-sold} message to their player.
+     *
+     * @param now epoch millis used for the expiry guard
+     * @return {@code true} iff exactly one row was claimed by this call
+     */
+    boolean markSoldIfActive(long listingId,
+                             UUID buyerUuid,
+                             String buyerName,
+                             long now) throws StorageException;
+
+    /**
+     * Reverses a previous successful {@link #markSoldIfActive} claim by
+     * the same buyer. Used to unwind a buy attempt when a subsequent
+     * step (buyer withdraw, seller deposit) failed and we need to put
+     * the listing back on the market.
+     *
+     * <p>Guard: {@code WHERE listing_id=? AND status='SOLD' AND buyer_uuid=?}.
+     * The buyer match prevents a stale rollback from undoing a later,
+     * successful purchase by a different player.
+     *
+     * @return {@code true} iff exactly one row was reverted
+     */
+    boolean revertSoldIfBuyer(long listingId, UUID buyerUuid) throws StorageException;
 
     int countListingsByStatus(AuctionListingStatus status) throws StorageException;
 

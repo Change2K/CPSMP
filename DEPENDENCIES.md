@@ -70,8 +70,10 @@ message and disables itself without taking the rest of CPSMP down.
 | Feature scope | Required plugins |
 |---|---|
 | **CPSMP core** (spawn, RTP, portals, zones, admin) | **None** |
-| **Auction House (V2.1)** - listing creation with a non-zero `fees.listing-fee` or with `require-economy-for-auction-house: true` | A Vault-compatible economy setup (Vault + one provider) |
-| **Auction House (V2.1)** - listing creation with no fee and `require-economy-for-auction-house: false` | None |
+| **Auction House (V2.1)** - selling with `fees.listing-fee > 0` or `require-economy-for-auction-house: true` | A Vault-compatible economy setup (Vault + one provider) |
+| **Auction House (V2.1)** - selling with no fee and `require-economy-for-auction-house: false` | None |
+| **Auction House (V2.2)** - buying (`/ah buy`, including the offline-seller payout) | A Vault-compatible economy setup (Vault + one provider) - hard requirement; `/ah buy` refuses with `auction.economy-required` when no bridge is available |
+| **Auction House (V2.2)** - browsing (`/ah browse`) | None |
 
 ---
 
@@ -134,6 +136,12 @@ Listed in `plugin.yml`:
 - Auction House persistence uses **SQLite** through the `java.sql` API
   with the driver supplied at runtime by Paper's `libraries:` loader
   (see section 2.1). No NMS or `org.bukkit.craftbukkit.*` code is used.
+- The buy flow (`/ah buy`) deposits the seller payout via
+  `EconomyBridge#deposit(UUID, ...)`. Every Vault provider CPSMP
+  targets (EssentialsX, CMI, XConomy, GemsEconomy, TheNewEconomy via
+  Vault) accepts deposits keyed by an `OfflinePlayer` resolved from a
+  UUID, so offline sellers receive their money on the next login the
+  same way `/pay <name>` would deliver it.
 
 ---
 

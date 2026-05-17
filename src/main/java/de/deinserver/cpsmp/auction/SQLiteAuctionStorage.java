@@ -239,6 +239,46 @@ public final class SQLiteAuctionStorage implements AuctionStorage {
     }
 
     @Override
+    public List<AuctionListing> getActiveBrowsePage(long now, int offset, int limit) throws StorageException {
+        // Newest first so the latest activity sits at the top of /ah browse.
+        // The expires_at filter keeps the visible market in sync with what
+        // the buy flow will actually accept (markSoldIfActive uses the same
+        // guard).
+        String sql = """
+                SELECT * FROM auction_listings
+                WHERE status = ? AND expires_at > ?
+                ORDER BY created_at DESC
+                LIMIT ? OFFSET ?
+                """;
+        try (PreparedStatement ps = requireConnection().prepareStatement(sql)) {
+            ps.setString(1, AuctionListingStatus.ACTIVE.name());
+            ps.setLong(2, now);
+            ps.setInt(3, Math.max(1, limit));
+            ps.setInt(4, Math.max(0, offset));
+            return collectListings(ps);
+        } catch (SQLException ex) {
+            throw new StorageException("getActiveBrowsePage failed: " + ex.getMessage(), ex);
+        }
+    }
+
+    @Override
+    public int countActiveBrowse(long now) throws StorageException {
+        String sql = """
+                SELECT COUNT(*) FROM auction_listings
+                WHERE status = ? AND expires_at > ?
+                """;
+        try (PreparedStatement ps = requireConnection().prepareStatement(sql)) {
+            ps.setString(1, AuctionListingStatus.ACTIVE.name());
+            ps.setLong(2, now);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? rs.getInt(1) : 0;
+            }
+        } catch (SQLException ex) {
+            throw new StorageException("countActiveBrowse failed: " + ex.getMessage(), ex);
+        }
+    }
+
+    @Override
     public boolean transitionListingStatus(long listingId,
                                            AuctionListingStatus fromStatus,
                                            AuctionListingStatus toStatus)
@@ -255,6 +295,53 @@ public final class SQLiteAuctionStorage implements AuctionStorage {
             return ps.executeUpdate() == 1;
         } catch (SQLException ex) {
             throw new StorageException("transitionListingStatus failed: " + ex.getMessage(), ex);
+        }
+    }
+
+    @Override
+    public boolean markSoldIfActive(long listingId,
+                                    UUID buyerUuid,
+                                    String buyerName,
+                                    long now) throws StorageException {
+        // Status flip + buyer info written in one statement so SQLite's
+        // own UPDATE serialisation gives us atomic exclusion against
+        // every other buyer racing for the same row.
+        String sql = """
+                UPDATE auction_listings
+                SET status = ?, buyer_uuid = ?, buyer_name = ?
+                WHERE listing_id = ? AND status = ? AND expires_at > ?
+                """;
+        try (PreparedStatement ps = requireConnection().prepareStatement(sql)) {
+            ps.setString(1, AuctionListingStatus.SOLD.name());
+            ps.setString(2, buyerUuid.toString());
+            ps.setString(3, buyerName);
+            ps.setLong(4, listingId);
+            ps.setString(5, AuctionListingStatus.ACTIVE.name());
+            ps.setLong(6, now);
+            return ps.executeUpdate() == 1;
+        } catch (SQLException ex) {
+            throw new StorageException("markSoldIfActive failed: " + ex.getMessage(), ex);
+        }
+    }
+
+    @Override
+    public boolean revertSoldIfBuyer(long listingId, UUID buyerUuid) throws StorageException {
+        // The buyer_uuid clause makes the rollback safe even in the
+        // pathological case where another buyer somehow re-claimed the
+        // row in the meantime: we only undo our own claim.
+        String sql = """
+                UPDATE auction_listings
+                SET status = ?, buyer_uuid = NULL, buyer_name = NULL
+                WHERE listing_id = ? AND status = ? AND buyer_uuid = ?
+                """;
+        try (PreparedStatement ps = requireConnection().prepareStatement(sql)) {
+            ps.setString(1, AuctionListingStatus.ACTIVE.name());
+            ps.setLong(2, listingId);
+            ps.setString(3, AuctionListingStatus.SOLD.name());
+            ps.setString(4, buyerUuid.toString());
+            return ps.executeUpdate() == 1;
+        } catch (SQLException ex) {
+            throw new StorageException("revertSoldIfBuyer failed: " + ex.getMessage(), ex);
         }
     }
 

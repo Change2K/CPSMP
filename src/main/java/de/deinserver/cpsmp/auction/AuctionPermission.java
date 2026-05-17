@@ -10,6 +10,8 @@ package de.deinserver.cpsmp.auction;
  *     <li>{@link #SELL} - required for {@code /ah sell &lt;price&gt;}.</li>
  *     <li>{@link #CANCEL} - required for {@code /ah cancel &lt;id&gt;}.</li>
  *     <li>{@link #COLLECT} - required for {@code /ah collect}.</li>
+ *     <li>{@link #BROWSE} - required for {@code /ah browse [page]}.</li>
+ *     <li>{@link #BUY} - required for {@code /ah buy &lt;id&gt;}.</li>
  *     <li>{@link #ADMIN} - required for the {@code /ah admin} subtree and
  *         for bypassing the per-player active-listing limit. Implied by
  *         {@code cpsmp.admin}.</li>
@@ -21,6 +23,8 @@ public final class AuctionPermission {
     public static final String SELL = "cpsmp.ah.sell";
     public static final String CANCEL = "cpsmp.ah.cancel";
     public static final String COLLECT = "cpsmp.ah.collect";
+    public static final String BROWSE = "cpsmp.ah.browse";
+    public static final String BUY = "cpsmp.ah.buy";
     public static final String ADMIN = "cpsmp.ah.admin";
 
     private AuctionPermission() {

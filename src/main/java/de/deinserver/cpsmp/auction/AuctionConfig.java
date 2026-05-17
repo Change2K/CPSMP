@@ -42,6 +42,8 @@ public final class AuctionConfig {
 
     private final long expireCheckIntervalSeconds;
 
+    private final int browsePageSize;
+
     private final boolean debug;
 
     public AuctionConfig(FileConfiguration cfg, Logger logger) {
@@ -87,6 +89,11 @@ public final class AuctionConfig {
         // expired items to the seller's collect storage too much.
         long rawInterval = cfg.getLong("cleanup.expire-check-interval-seconds", 60L);
         this.expireCheckIntervalSeconds = Math.max(10L, Math.min(rawInterval, 3600L));
+
+        // /ah browse pagination. Clamped to [3, 50] to keep the text
+        // overview readable in chat. Defaults to 8.
+        int rawPageSize = cfg.getInt("browse.page-size", 8);
+        this.browsePageSize = Math.max(3, Math.min(rawPageSize, 50));
 
         this.debug = cfg.getBoolean("debug", false);
     }
@@ -141,6 +148,10 @@ public final class AuctionConfig {
 
     public long getExpireCheckIntervalSeconds() {
         return expireCheckIntervalSeconds;
+    }
+
+    public int getBrowsePageSize() {
+        return browsePageSize;
     }
 
     public boolean isDebug() {

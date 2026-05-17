@@ -125,6 +125,8 @@ auction:
   help-listings: "<gray> <yellow>/ah listings</yellow> <dark_gray>-</dark_gray> Eigene aktive Angebote anzeigen.</gray>"
   help-cancel: "<gray> <yellow>/ah cancel <ID></yellow> <dark_gray>-</dark_gray> Eigenes Angebot zurueckziehen.</gray>"
   help-collect: "<gray> <yellow>/ah collect</yellow> <dark_gray>-</dark_gray> Bereitgestellte Items abholen.</gray>"
+  help-browse: "<gray> <yellow>/ah browse [Seite]</yellow> <dark_gray>-</dark_gray> Aktive Angebote im Markt durchstoebern.</gray>"
+  help-buy: "<gray> <yellow>/ah buy <ID></yellow> <dark_gray>-</dark_gray> Ein aktives Angebot kaufen.</gray>"
   help-admin: "<gray> <yellow>/ah admin <remove|info|reload></yellow></gray>"
   # /ah sell
   invalid-price: "<red>Ungueltiger Preis.</red>"
@@ -146,13 +148,36 @@ auction:
   collect-empty: "<gray>Du hast keine Items zum Abholen.</gray>"
   collect-success: "<green>Abholung abgeschlossen.</green> <dark_gray>(<yellow>{count}</yellow> Items)</dark_gray>"
   collect-partial: "<gray>Abholung teilweise erledigt.</gray> <dark_gray>(<yellow>{count}</yellow> erhalten, <yellow>{remaining}</yellow> verbleiben - Inventar pruefen)</dark_gray>"
+  # /ah browse (V2.2 Text-Ausgabe; die finale GUI folgt in V2.3)
+  browse-empty: "<gray>Keine aktiven Auktionen gefunden.</gray>"
+  browse-header: "<gradient:#5BCEFA:#F5A9B8><bold>Auktionen</bold></gradient> <dark_gray>|</dark_gray> <gray>Seite <yellow>{page}</yellow>/<yellow>{pages}</yellow> <dark_gray>(<yellow>{total}</yellow> aktiv)</dark_gray></gray>"
+  browse-entry: "<gray> <yellow>#{id}</yellow> <dark_gray>|</dark_gray> {item} x<yellow>{amount}</yellow> <dark_gray>|</dark_gray> <yellow>{price}</yellow> <dark_gray>|</dark_gray> Verkaeufer: <yellow>{seller}</yellow> <dark_gray>|</dark_gray> <gray>laeuft ab in <yellow>{time}</yellow></gray></gray>"
+  browse-page: "<gray>Naechste Seite: <yellow>/ah browse {next}</yellow> <dark_gray>(<yellow>{pages}</yellow> insgesamt)</dark_gray></gray>"
+  # /ah buy (V2.2)
+  buy-usage: "<gray>Nutzung: <yellow>/ah buy <ID></yellow></gray>"
+  buy-not-found: "<red>Dieses Angebot existiert nicht.</red>"
+  buy-not-active: "<red>Dieses Angebot ist nicht mehr verfuegbar.</red>"
+  buy-expired: "<red>Dieses Angebot ist abgelaufen.</red>"
+  buy-already-sold: "<red>Dieses Angebot wurde gerade verkauft.</red>"
+  buy-own-listing: "<red>Du kannst dein eigenes Angebot nicht kaufen.</red>"
+  buy-not-enough-money: "<red>Du hast nicht genug Geld.</red>"
+  buy-economy-failed: "<red>Transaktion fehlgeschlagen. Bitte versuche es erneut.</red>"
+  buy-storage-error: "<red>Kauf konnte nicht abgeschlossen werden. Bitte versuche es spaeter erneut.</red>"
+  buy-success: "<green>Kauf abgeschlossen.</green> <dark_gray>(ID <yellow>{id}</yellow>, <yellow>{item}</yellow> x<yellow>{amount}</yellow> fuer <yellow>{price}</yellow> von <yellow>{seller}</yellow>)</dark_gray>"
+  buy-inventory-full: "<gray>Dein Inventar ist voll. Das Item wurde zum Abholen gespeichert.</gray>"
+  # Optional zweite Zeile nach buy-success, wenn sale-tax-percent > 0 ist.
+  sale-tax-info: "<gray>Auktionsgebuehr: <yellow>{tax}</yellow> <dark_gray>|</dark_gray> Auszahlung an Verkaeufer: <yellow>{payout}</yellow></gray>"
+  # Wird angezeigt, wenn der Verkaeufer-Payout fehlschlug und der Kauf
+  # automatisch zurueckgerollt wurde. Dein Geld ist wieder bei dir.
+  seller-payout-failed: "<red>Transaktion fehlgeschlagen: Auszahlung an den Verkaeufer war nicht moeglich. Dein Geld wurde zurueckerstattet.</red>"
   # /ah admin
   admin-usage: "<gray>Nutzung: <yellow>/ah admin <remove <ID>|info|reload></yellow></gray>"
   admin-removed: "<green>Angebot entfernt.</green> <dark_gray>(ID <yellow>{id}</yellow>, Verkaeufer <yellow>{seller}</yellow>; Item im Abholfach des Verkaeufers)</dark_gray>"
   admin-info-header: "<gradient:#5BCEFA:#F5A9B8><bold>Auktionshaus</bold></gradient>"
   admin-info-state: "<gray>Aktiv: <yellow>{state}</yellow> <dark_gray>|</dark_gray> Status: <yellow>{reason}</yellow></gray>"
   admin-info-storage: "<gray>Storage: <yellow>{type}</yellow></gray>"
-  admin-info-counts: "<gray>Angebote: <yellow>{active}</yellow> aktiv, <yellow>{expired}</yellow> abgelaufen, <yellow>{cancelled}</yellow> zurueckgezogen <dark_gray>|</dark_gray> Abholfach: <yellow>{collect}</yellow></gray>"
+  admin-info-counts: "<gray>Angebote: <yellow>{active}</yellow> aktiv, <yellow>{sold}</yellow> verkauft, <yellow>{expired}</yellow> abgelaufen, <yellow>{cancelled}</yellow> zurueckgezogen <dark_gray>|</dark_gray> Abholfach: <yellow>{collect}</yellow></gray>"
+  admin-info-tax: "<gray>Verkaufssteuer: <yellow>{percent}%</yellow></gray>"
   admin-info-economy: "<gray>Economy: <yellow>{bridge}</yellow> <dark_gray>|</dark_gray> Provider: <yellow>{provider}</yellow> <dark_gray>|</dark_gray> verfuegbar: <yellow>{available}</yellow></gray>"
   reload-success: "<green>Auktionshaus-Konfiguration neu geladen.</green>"
   # Used by future expiry notifications (V2.2+). Already declared so

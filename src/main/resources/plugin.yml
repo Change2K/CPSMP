@@ -77,6 +77,8 @@ permissions:
   # Auction House permissions. /ah is enabled for everyone by default and
   # gates its subcommands on the finer-grained nodes below so a server
   # owner can disable e.g. selling without disabling the whole command.
+  # cpsmp.admin intentionally only includes cpsmp.ah.admin; admins have
+  # to opt in to the player-level nodes the same way regular players do.
   cpsmp.ah:
     description: Erlaubt /ah.
     default: true
@@ -88,6 +90,12 @@ permissions:
     default: true
   cpsmp.ah.collect:
     description: Erlaubt /ah collect.
+    default: true
+  cpsmp.ah.browse:
+    description: Erlaubt /ah browse.
+    default: true
+  cpsmp.ah.buy:
+    description: Erlaubt /ah buy.
     default: true
   cpsmp.ah.admin:
     description: Erlaubt /ah admin (entfernen, info, reload).

@@ -520,6 +520,321 @@ public final class AuctionHouseManager {
         return out;
     }
 
+    /**
+     * Fetches a page of ACTIVE non-expired listings (newest first) for
+     * {@code /ah browse}. Filtering of expired rows is done in SQL so
+     * the visible market always matches what the buy flow will accept.
+     *
+     * @param requestedPage 1-indexed page number; clamped to {@code [1, totalPages]}
+     *                      when listings exist, or returned as-is on an empty market
+     */
+    public CompletableFuture<BrowsePage> browseListings(int requestedPage) {
+        if (!active) {
+            return CompletableFuture.completedFuture(BrowsePage.empty(requestedPage));
+        }
+        int pageSize = config.getBrowsePageSize();
+        long now = System.currentTimeMillis();
+        CompletableFuture<BrowsePage> out = new CompletableFuture<>();
+        runDb(() -> {
+            int total = storage.countActiveBrowse(now);
+            if (total == 0) {
+                return new BrowsePage(List.of(), 1, 1, 0, pageSize);
+            }
+            int totalPages = (total + pageSize - 1) / pageSize;
+            int page = Math.max(1, Math.min(requestedPage, totalPages));
+            int offset = (page - 1) * pageSize;
+            List<AuctionListing> rows = storage.getActiveBrowsePage(now, offset, pageSize);
+            return new BrowsePage(rows, page, totalPages, total, pageSize);
+        }).whenComplete((page, ex) -> runOnMain(() -> {
+            if (ex != null) {
+                logStorage("browseListings", ex);
+                out.complete(BrowsePage.empty(requestedPage));
+                return;
+            }
+            out.complete(page);
+        }));
+        return out;
+    }
+
+    /**
+     * Buys the listing identified by {@code listingId} on behalf of
+     * {@code buyer}. See class-level Javadoc for the dupe-protection
+     * contract. The flow:
+     *
+     * <ol>
+     *     <li>Pre-flight checks (AH active, economy available, listing
+     *         exists, status, expiry, own-listing rule, balance).</li>
+     *     <li>Atomic claim via {@link AuctionStorage#markSoldIfActive}
+     *         - the SQL UPDATE serialises all racing buyers; only one
+     *         wins. The same UPDATE writes buyer UUID + name into the
+     *         row, so the SOLD state is fully formed in one round-trip.</li>
+     *     <li>Withdraw buyer (main thread). On failure, async revert
+     *         the claim via {@link AuctionStorage#revertSoldIfBuyer}.</li>
+     *     <li>Deposit seller (main thread, net of {@code sale-tax-percent}).
+     *         On failure, try to refund the buyer + revert the claim.
+     *         If the refund itself fails, we cannot safely revert -
+     *         keep the SOLD state, log SEVERE, and proceed with delivery
+     *         so the buyer at least gets the item they paid for.</li>
+     *     <li>Delivery (main thread). If the buyer's inventory has room
+     *         {@code addItem} is used; otherwise the item is parked in
+     *         the buyer's collect storage with reason
+     *         {@link AuctionCollectReason#PURCHASED_ITEM_INVENTORY_FULL}.
+     *         Items are never dropped.</li>
+     * </ol>
+     */
+    public CompletableFuture<BuyResult> buyListing(Player buyer, long listingId) {
+        if (!active) {
+            return CompletableFuture.completedFuture(BuyResult.failure("auction.disabled"));
+        }
+        // Buying always moves money, so an economy bridge is mandatory
+        // here regardless of the require-economy-for-auction-house flag
+        // used for selling.
+        EconomyManager economyManager = plugin.getEconomyManager();
+        if (!economyManager.isAvailable()) {
+            return CompletableFuture.completedFuture(BuyResult.failure("auction.economy-required"));
+        }
+        if (listingId <= 0L) {
+            return CompletableFuture.completedFuture(BuyResult.failure("auction.buy-not-found"));
+        }
+
+        final UUID buyerId = buyer.getUniqueId();
+        final String buyerName = buyer.getName();
+        CompletableFuture<BuyResult> out = new CompletableFuture<>();
+
+        runDb(() -> storage.getListing(listingId))
+                .whenComplete((opt, getEx) -> runOnMain(() -> {
+                    if (getEx != null) {
+                        logStorage("buy/getListing", getEx);
+                        out.complete(BuyResult.failure("auction.buy-storage-error"));
+                        return;
+                    }
+                    if (opt.isEmpty()) {
+                        out.complete(BuyResult.failure("auction.buy-not-found"));
+                        return;
+                    }
+                    AuctionListing listing = opt.get();
+                    long now = System.currentTimeMillis();
+                    if (listing.status() == AuctionListingStatus.SOLD) {
+                        out.complete(BuyResult.failure("auction.buy-already-sold"));
+                        return;
+                    }
+                    if (listing.status() != AuctionListingStatus.ACTIVE) {
+                        out.complete(BuyResult.failure("auction.buy-not-active"));
+                        return;
+                    }
+                    if (listing.expiresAt() <= now) {
+                        out.complete(BuyResult.failure("auction.buy-expired"));
+                        return;
+                    }
+                    if (listing.sellerUuid().equals(buyerId)
+                            && !config.isAllowOwnPurchase()) {
+                        out.complete(BuyResult.failure("auction.buy-own-listing"));
+                        return;
+                    }
+                    // Balance pre-check. Not authoritative on its own
+                    // (the withdraw can still fail if the balance moves
+                    // between the check and the withdraw) but cheap
+                    // enough to avoid claiming a listing the buyer
+                    // obviously cannot afford.
+                    EconomyBridge bridge = economyManager.getBridge();
+                    if (!bridge.hasBalance(buyerId, listing.price())) {
+                        out.complete(BuyResult.failure("auction.buy-not-enough-money"));
+                        return;
+                    }
+                    completeBuyAfterChecks(buyer, buyerId, buyerName, listing, out);
+                }));
+        return out;
+    }
+
+    private void completeBuyAfterChecks(Player buyer,
+                                        UUID buyerId,
+                                        String buyerName,
+                                        AuctionListing listing,
+                                        CompletableFuture<BuyResult> out) {
+        long now = System.currentTimeMillis();
+        runDb(() -> storage.markSoldIfActive(
+                listing.listingId(), buyerId, buyerName, now))
+                .whenComplete((claimed, claimEx) -> runOnMain(() -> {
+                    if (claimEx != null) {
+                        logStorage("buy/markSoldIfActive", claimEx);
+                        out.complete(BuyResult.failure("auction.buy-storage-error"));
+                        return;
+                    }
+                    if (!Boolean.TRUE.equals(claimed)) {
+                        // Someone else won the race, or the listing expired
+                        // between the pre-check and the UPDATE.
+                        out.complete(BuyResult.failure("auction.buy-already-sold"));
+                        return;
+                    }
+
+                    EconomyBridge bridge = plugin.getEconomyManager().getBridge();
+                    double price = listing.price();
+                    EconomyTransactionResult withdraw = bridge.withdraw(
+                            buyerId, price, "AH purchase #" + listing.listingId());
+                    if (!withdraw.success()) {
+                        // Roll the claim back so the seller's listing
+                        // is on the market again. revert is best-effort:
+                        // if it fails the SOLD row sits there until an
+                        // admin deals with it - but the buyer never lost
+                        // money in this branch.
+                        runDb(() -> storage.revertSoldIfBuyer(listing.listingId(), buyerId))
+                                .whenComplete((reverted, revEx) -> {
+                                    if (revEx != null) {
+                                        logStorage("buy/revertAfterWithdrawFail", revEx);
+                                    }
+                                });
+                        String key = "economy.insufficient-funds".equals(withdraw.reasonKey())
+                                ? "auction.buy-not-enough-money"
+                                : "auction.buy-economy-failed";
+                        out.complete(BuyResult.failure(key));
+                        return;
+                    }
+
+                    // Sale tax: gross stays with the buyer-debited
+                    // economy; only the net sellerPayout is deposited
+                    // to the seller. Tax never lands in any account -
+                    // it is simply not paid out, which is the standard
+                    // behavior of EssentialsX/CMI auction implementations.
+                    double tax = roundCents(price * config.getSaleTaxPercent() / 100.0D);
+                    double sellerPayout = Math.max(0.0D, roundCents(price - tax));
+
+                    EconomyTransactionResult deposit = bridge.deposit(
+                            listing.sellerUuid(), sellerPayout,
+                            "AH payout #" + listing.listingId());
+                    if (!deposit.success()) {
+                        handleSellerDepositFailure(buyer, buyerId, listing, price, tax, sellerPayout, out);
+                        return;
+                    }
+
+                    deliverPurchasedItem(buyer, buyerId, listing, price, tax, sellerPayout, out);
+                }));
+    }
+
+    /**
+     * Recovery path for "buyer was charged but seller could not be paid".
+     * Tries to refund the buyer and put the listing back on the market.
+     * If even the refund fails, we keep SOLD + deliver the item: the
+     * buyer paid, so they get the goods, and the seller needs admin
+     * help to receive their payout.
+     */
+    private void handleSellerDepositFailure(Player buyer,
+                                            UUID buyerId,
+                                            AuctionListing listing,
+                                            double price,
+                                            double tax,
+                                            double sellerPayout,
+                                            CompletableFuture<BuyResult> out) {
+        EconomyBridge bridge = plugin.getEconomyManager().getBridge();
+        EconomyTransactionResult refund = bridge.deposit(
+                buyerId, price, "AH purchase refund (seller payout failed) #" + listing.listingId());
+        if (refund.success()) {
+            runDb(() -> storage.revertSoldIfBuyer(listing.listingId(), buyerId))
+                    .whenComplete((reverted, revEx) -> {
+                        if (revEx != null) {
+                            logStorage("buy/revertAfterSellerDepositFail", revEx);
+                        }
+                    });
+            out.complete(BuyResult.failure("auction.seller-payout-failed"));
+            return;
+        }
+        // Refund failed too: do not strand the buyer. They paid in full,
+        // so they get the item. Log SEVERE so an admin can resolve the
+        // unpaid seller payout manually.
+        plugin.getLogger().severe("[AH] Seller payout AND buyer refund failed for listing #"
+                + listing.listingId() + " seller=" + listing.sellerName()
+                + " buyer=" + buyer.getName()
+                + " price=" + formatMoney(price)
+                + " payout=" + formatMoney(sellerPayout)
+                + " - delivering item to buyer; manual admin intervention required.");
+        deliverPurchasedItem(buyer, buyerId, listing, price, tax, sellerPayout, out);
+    }
+
+    private void deliverPurchasedItem(Player buyer,
+                                      UUID buyerId,
+                                      AuctionListing listing,
+                                      double price,
+                                      double tax,
+                                      double sellerPayout,
+                                      CompletableFuture<BuyResult> out) {
+        if (!buyer.isOnline()) {
+            // Buyer logged off between paying and delivery - park the
+            // whole item in their collect storage.
+            parkPurchaseInCollect(buyer, buyerId, listing, price, tax, sellerPayout, out);
+            return;
+        }
+        ItemStack delivery = listing.itemStack().clone();
+        int before = delivery.getAmount();
+        Map<Integer, ItemStack> leftover = buyer.getInventory().addItem(delivery);
+        if (leftover.isEmpty()) {
+            if (config.isDebug()) {
+                plugin.getLogger().info("[AH] Buyer " + buyer.getName()
+                        + " bought #" + listing.listingId()
+                        + " for " + formatMoney(price));
+            }
+            out.complete(BuyResult.success(listing, price, tax, sellerPayout, false));
+            return;
+        }
+        // Partial or no-room delivery. Park the leftover in collect
+        // storage with the buyer-purchase reason. We never call
+        // delete-and-retry on the already-delivered slice because the
+        // player legitimately owns those items now (they paid full price).
+        ItemStack remainder = leftover.values().iterator().next();
+        int deliveredAmount = before - remainder.getAmount();
+        if (config.isDebug()) {
+            plugin.getLogger().info("[AH] Buyer " + buyer.getName()
+                    + " bought #" + listing.listingId()
+                    + "; " + deliveredAmount + "/" + before
+                    + " delivered, remainder to collect storage.");
+        }
+        ItemStack toCollect = remainder.clone();
+        runDb(() -> {
+            storage.insertCollectItem(
+                    buyerId,
+                    toCollect,
+                    AuctionCollectReason.PURCHASED_ITEM_INVENTORY_FULL,
+                    System.currentTimeMillis(),
+                    listing.listingId());
+            return null;
+        }).whenComplete((ignored, ex) -> runOnMain(() -> {
+            if (ex != null) {
+                // Catastrophic: buyer paid but we cannot store the
+                // leftover. Log SEVERE with the serialised description
+                // so an admin can recover it.
+                plugin.getLogger().severe("[AH] Could not park purchase remainder for "
+                        + buyer.getName() + " listing #" + listing.listingId()
+                        + " item=" + toCollect.getType() + " amount=" + toCollect.getAmount()
+                        + " - " + ex.getMessage());
+            }
+            out.complete(BuyResult.success(listing, price, tax, sellerPayout, true));
+        }));
+    }
+
+    private void parkPurchaseInCollect(Player buyer,
+                                       UUID buyerId,
+                                       AuctionListing listing,
+                                       double price,
+                                       double tax,
+                                       double sellerPayout,
+                                       CompletableFuture<BuyResult> out) {
+        ItemStack toCollect = listing.itemStack().clone();
+        runDb(() -> {
+            storage.insertCollectItem(
+                    buyerId,
+                    toCollect,
+                    AuctionCollectReason.PURCHASED_ITEM_INVENTORY_FULL,
+                    System.currentTimeMillis(),
+                    listing.listingId());
+            return null;
+        }).whenComplete((ignored, ex) -> runOnMain(() -> {
+            if (ex != null) {
+                plugin.getLogger().severe("[AH] Offline buyer " + buyer.getName()
+                        + " bought #" + listing.listingId()
+                        + " but could not store item: " + ex.getMessage());
+            }
+            out.complete(BuyResult.success(listing, price, tax, sellerPayout, true));
+        }));
+    }
+
     public CompletableFuture<Stats> getStats() {
         CompletableFuture<Stats> out = new CompletableFuture<>();
         if (!active) {
@@ -528,7 +843,8 @@ public final class AuctionHouseManager {
                     false,
                     inactiveReason != null ? inactiveReason : "disabled",
                     config != null ? config.getStorageType() : "-",
-                    0, 0, 0, 0,
+                    0, 0, 0, 0, 0,
+                    config != null ? config.getSaleTaxPercent() : 0.0D,
                     bridge.providerType().name(),
                     bridge.providerName(),
                     bridge.isAvailable()));
@@ -536,17 +852,19 @@ public final class AuctionHouseManager {
         }
         runDb(() -> {
             int activeCount = storage.countListingsByStatus(AuctionListingStatus.ACTIVE);
+            int soldCount = storage.countListingsByStatus(AuctionListingStatus.SOLD);
             int expiredCount = storage.countListingsByStatus(AuctionListingStatus.EXPIRED);
             int cancelledCount = storage.countListingsByStatus(AuctionListingStatus.CANCELLED);
             int collect = storage.countCollectItems();
-            return new int[]{activeCount, expiredCount, cancelledCount, collect};
+            return new int[]{activeCount, soldCount, expiredCount, cancelledCount, collect};
         }).whenComplete((counts, ex) -> runOnMain(() -> {
             EconomyBridge bridge = plugin.getEconomyManager().getBridge();
             if (ex != null) {
                 logStorage("getStats", ex);
                 out.complete(new Stats(
                         true, "ok", config.getStorageType(),
-                        -1, -1, -1, -1,
+                        -1, -1, -1, -1, -1,
+                        config.getSaleTaxPercent(),
                         bridge.providerType().name(),
                         bridge.providerName(),
                         bridge.isAvailable()));
@@ -554,12 +872,17 @@ public final class AuctionHouseManager {
             }
             out.complete(new Stats(
                     true, "ok", config.getStorageType(),
-                    counts[0], counts[1], counts[2], counts[3],
+                    counts[0], counts[1], counts[2], counts[3], counts[4],
+                    config.getSaleTaxPercent(),
                     bridge.providerType().name(),
                     bridge.providerName(),
                     bridge.isAvailable()));
         }));
         return out;
+    }
+
+    private static double roundCents(double value) {
+        return Math.round(value * 100.0D) / 100.0D;
     }
 
     // -------------------------------------------------- package-private helpers
@@ -763,13 +1086,60 @@ public final class AuctionHouseManager {
             String inactiveReason,
             String storageType,
             int activeListings,
+            int soldListings,
             int expiredListings,
             int cancelledListings,
             int collectItems,
+            double saleTaxPercent,
             String economyBridge,
             String economyProvider,
             boolean economyAvailable
     ) {}
+
+    /**
+     * Output of {@link #browseListings(int)}. {@code page} and
+     * {@code totalPages} are 1-indexed; the empty-market state still
+     * reports {@code totalPages=1} so the message renders cleanly.
+     */
+    public record BrowsePage(
+            List<AuctionListing> listings,
+            int page,
+            int totalPages,
+            int totalListings,
+            int pageSize
+    ) {
+        static BrowsePage empty(int requestedPage) {
+            return new BrowsePage(List.of(), Math.max(1, requestedPage), 1, 0, 0);
+        }
+    }
+
+    /**
+     * Output of {@link #buyListing(Player, long)}. Success carries the
+     * full economic summary so the command layer can render a single
+     * German confirmation line plus an optional sale-tax info line.
+     */
+    public sealed interface BuyResult {
+        record Success(AuctionListing listing,
+                       double price,
+                       double tax,
+                       double sellerPayout,
+                       boolean inventoryFull) implements BuyResult {}
+        record Failure(String messageKey, Map<String, String> placeholders) implements BuyResult {}
+
+        static BuyResult success(AuctionListing listing,
+                                 double price,
+                                 double tax,
+                                 double sellerPayout,
+                                 boolean inventoryFull) {
+            return new Success(listing, price, tax, sellerPayout, inventoryFull);
+        }
+        static BuyResult failure(String key) {
+            return new Failure(key, Map.of());
+        }
+        static BuyResult failure(String key, Map<String, String> placeholders) {
+            return new Failure(key, placeholders);
+        }
+    }
 
     /** Internal callable that may throw a {@link AuctionStorage.StorageException}. */
     @FunctionalInterface
