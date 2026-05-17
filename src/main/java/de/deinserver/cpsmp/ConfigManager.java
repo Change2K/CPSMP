@@ -13,7 +13,8 @@ import java.util.logging.Level;
 /**
  * Loads, saves and re-loads the configuration files used by CPSMP:
  * {@code config.yml}, {@code messages.yml}, {@code portals.yml},
- * {@code zones.yml}, {@code economy.yml} and {@code auctionhouse.yml}.
+ * {@code zones.yml}, {@code economy.yml}, {@code auctionhouse.yml} and
+ * {@code teleports.yml} (V3.0 Homes / TPA).
  * Each external file is created from the bundled default on first
  * launch.
  */
@@ -24,6 +25,7 @@ public final class ConfigManager {
     private static final String ZONES_FILE = "zones.yml";
     private static final String ECONOMY_FILE = "economy.yml";
     private static final String AUCTION_FILE = "auctionhouse.yml";
+    private static final String TELEPORTS_FILE = "teleports.yml";
 
     private final CPSMPPlugin plugin;
 
@@ -32,12 +34,14 @@ public final class ConfigManager {
     private File zonesFile;
     private File economyFile;
     private File auctionFile;
+    private File teleportsFile;
 
     private FileConfiguration messages;
     private FileConfiguration portals;
     private FileConfiguration zones;
     private FileConfiguration economy;
     private FileConfiguration auction;
+    private FileConfiguration teleports;
 
     public ConfigManager(CPSMPPlugin plugin) {
         this.plugin = plugin;
@@ -52,12 +56,14 @@ public final class ConfigManager {
         this.zonesFile = ensureFile(ZONES_FILE);
         this.economyFile = ensureFile(ECONOMY_FILE);
         this.auctionFile = ensureFile(AUCTION_FILE);
+        this.teleportsFile = ensureFile(TELEPORTS_FILE);
 
         this.messages = loadWithDefaults(messagesFile, MESSAGES_FILE);
         this.portals = loadWithDefaults(portalsFile, PORTALS_FILE);
         this.zones = loadWithDefaults(zonesFile, ZONES_FILE);
         this.economy = loadWithDefaults(economyFile, ECONOMY_FILE);
         this.auction = loadWithDefaults(auctionFile, AUCTION_FILE);
+        this.teleports = loadWithDefaults(teleportsFile, TELEPORTS_FILE);
     }
 
     public void reload() {
@@ -101,6 +107,20 @@ public final class ConfigManager {
 
     public FileConfiguration getAuction() {
         return auction;
+    }
+
+    /** V3.0: {@code teleports.yml} (Homes, TPA, optional /back). */
+    public FileConfiguration getTeleports() {
+        return teleports;
+    }
+
+    /**
+     * Re-reads only {@code teleports.yml} from disk (used by
+     * {@code /cpsmpadmin homes reload}).
+     */
+    public void reloadTeleports() {
+        this.teleportsFile = ensureFile(TELEPORTS_FILE);
+        this.teleports = loadWithDefaults(teleportsFile, TELEPORTS_FILE);
     }
 
     public void savePortals() {

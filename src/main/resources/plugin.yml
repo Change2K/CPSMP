@@ -7,15 +7,15 @@ main: de.deinserver.cpsmp.CPSMPPlugin
 # re-test. See COMPATIBILITY.md.
 api-version: '1.21'
 author: deinserver
-description: Premium SMP foundation plugin (V2.6).
+description: Premium SMP foundation plugin (V3.0).
 load: POSTWORLD
 
 # Paper runtime library loading. CPSMP uses SQLite for the V2.1 Auction
 # House backend. Paper resolves and class-loads this library from Maven
 # Central before the plugin is enabled, so we never have to shade it.
-# On Spigot/CraftBukkit this directive is ignored; the Auction House then
-# detects the missing JDBC driver, logs a clear German message and
-# disables itself without affecting the rest of the plugin.
+# On Spigot/CraftBukkit this directive is ignored; features that need JDBC
+# detect the missing driver, log a clear German message and disable
+# themselves without affecting the rest of the plugin.
 # See DEPENDENCIES.md.
 libraries:
   - org.xerial:sqlite-jdbc:3.46.1.0
@@ -41,6 +41,78 @@ commands:
     description: Zufaelliger Teleport in der aktuellen Welt.
     usage: /rtp
     permission: cpsmp.rtp
+  sethome:
+    description: Setze ein benanntes Home.
+    usage: /sethome <name>
+    permission: cpsmp.home.set
+  cpsethome:
+    description: CPSMP-Alias fuer /sethome (Fallback bei Befehlskonflikten).
+    usage: /cpsethome <name>
+    permission: cpsmp.home.set
+  home:
+    description: Teleportiere zu einem Home.
+    usage: /home <name>
+    permission: cpsmp.home
+  cphome:
+    description: CPSMP-Alias fuer /home.
+    usage: /cphome <name>
+    permission: cpsmp.home
+  homes:
+    description: Liste deiner Homes (GUI oder Chat).
+    usage: /homes
+    permission: cpsmp.home
+  cphomes:
+    description: CPSMP-Alias fuer /homes.
+    usage: /cphomes
+    permission: cpsmp.home
+  delhome:
+    description: Loesche ein Home.
+    usage: /delhome <name>
+    permission: cpsmp.home.delete
+  cpdelhome:
+    description: CPSMP-Alias fuer /delhome.
+    usage: /cpdelhome <name>
+    permission: cpsmp.home.delete
+  tpa:
+    description: Teleportanfrage an einen Spieler senden.
+    usage: /tpa <spieler>
+    permission: cpsmp.tpa
+  cptpa:
+    description: CPSMP-Alias fuer /tpa.
+    usage: /cptpa <spieler>
+    permission: cpsmp.tpa
+  tpaccept:
+    description: Teleportanfrage annehmen.
+    usage: /tpaccept
+    permission: cpsmp.tpa.accept
+  cptpaccept:
+    description: CPSMP-Alias fuer /tpaccept.
+    usage: /cptpaccept
+    permission: cpsmp.tpa.accept
+  tpdeny:
+    description: Teleportanfrage ablehnen.
+    usage: /tpdeny
+    permission: cpsmp.tpa.deny
+  cptpdeny:
+    description: CPSMP-Alias fuer /tpdeny.
+    usage: /cptpdeny
+    permission: cpsmp.tpa.deny
+  tpahere:
+    description: Bittet einen Spieler, sich zu dir zu teleportieren.
+    usage: /tpahere <spieler>
+    permission: cpsmp.tpa.here
+  cptpahere:
+    description: CPSMP-Alias fuer /tpahere.
+    usage: /cptpahere <spieler>
+    permission: cpsmp.tpa.here
+  back:
+    description: Zurueck zur letzten CPSMP-Teleportposition.
+    usage: /back
+    permission: cpsmp.back
+  cpback:
+    description: CPSMP-Alias fuer /back.
+    usage: /cpback
+    permission: cpsmp.back
   ah:
     description: Auktionshaus - Items verkaufen, eigene Angebote verwalten und Abholungen einsammeln.
     usage: /ah [sell|listings|cancel|collect|admin]
@@ -48,7 +120,7 @@ commands:
     permission: cpsmp.ah
   cpsmpadmin:
     description: Administrative Befehle fuer CPSMP.
-    usage: /cpsmpadmin <setspawn|setportal|setzone|reload|info>
+    usage: /cpsmpadmin <setspawn|setportal|setzone|homes|reload|info>
     permission: cpsmp.admin
     aliases: [cpsmpa, cpa]
 
@@ -74,6 +146,54 @@ permissions:
   cpsmp.zone.attack:
     description: Erlaubt das Betreten der Attack-Zone.
     default: true
+  cpsmp.home:
+    description: Erlaubt /home, /homes, /cphome, /cphomes.
+    default: true
+  cpsmp.home.set:
+    description: Erlaubt /sethome und /cpsethome.
+    default: true
+  cpsmp.home.delete:
+    description: Erlaubt /delhome und /cpdelhome.
+    default: true
+  cpsmp.home.gui:
+    description: Erlaubt die Homes-GUI (wenn in teleports.yml aktiviert).
+    default: true
+  cpsmp.homes.1:
+    description: Mindestens 1 Home (wenn hoehere homes.* fehlen).
+    default: false
+  cpsmp.homes.3:
+    description: Mindestens 3 Homes.
+    default: false
+  cpsmp.homes.5:
+    description: Mindestens 5 Homes.
+    default: false
+  cpsmp.homes.10:
+    description: Mindestens 10 Homes.
+    default: false
+  cpsmp.homes.unlimited:
+    description: Unbegrenzte Homes.
+    default: op
+  cpsmp.home.bypasscooldown:
+    description: Ueberspringt Home- und optional /back-Cooldowns.
+    default: op
+  cpsmp.tpa:
+    description: Erlaubt /tpa und /cptpa.
+    default: true
+  cpsmp.tpa.accept:
+    description: Erlaubt /tpaccept und /cptpaccept.
+    default: true
+  cpsmp.tpa.deny:
+    description: Erlaubt /tpdeny und /cptpdeny.
+    default: true
+  cpsmp.tpa.here:
+    description: Erlaubt /tpahere und /cptpahere.
+    default: true
+  cpsmp.tpa.bypasscooldown:
+    description: Ueberspringt TPA-Cooldowns.
+    default: op
+  cpsmp.back:
+    description: Erlaubt /back und /cpback.
+    default: false
   # Auction House permissions. /ah is enabled for everyone by default and
   # gates its subcommands on the finer-grained nodes below so a server
   # owner can disable e.g. selling without disabling the whole command.

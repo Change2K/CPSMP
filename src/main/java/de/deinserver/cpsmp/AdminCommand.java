@@ -1,6 +1,10 @@
 package de.deinserver.cpsmp;
 
+import de.deinserver.cpsmp.teleport.CpsmpTeleportSubsystem;
+import de.deinserver.cpsmp.teleport.Home;
+import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -30,11 +34,12 @@ import java.util.Map;
 public final class AdminCommand implements CommandExecutor, TabCompleter {
 
     private static final List<String> ROOT = List.of(
-            "setspawn", "setportal", "portal", "setzone", "reload", "info");
+            "setspawn", "setportal", "portal", "setzone", "reload", "info", "homes");
     private static final List<String> CORNERS = List.of("pos1", "pos2", "target");
     private static final List<String> PORTAL_ACTIONS = List.of(
             "enable", "disable", "reset", "info");
     private static final List<String> ZONES = List.of("danger", "attack");
+    private static final List<String> HOMES_ACTIONS = List.of("info", "delete", "reload");
 
     private final CPSMPPlugin plugin;
 
@@ -61,6 +66,7 @@ public final class AdminCommand implements CommandExecutor, TabCompleter {
             case "setzone" -> handleSetZone(sender, args);
             case "reload" -> handleReload(sender);
             case "info" -> handleInfo(sender);
+            case "homes" -> handleHomes(sender, args);
             default -> {
                 plugin.getMessageManager().sendPrefixed(sender, "admin.usage");
                 yield true;
@@ -278,6 +284,101 @@ public final class AdminCommand implements CommandExecutor, TabCompleter {
         return true;
     }
 
+    private boolean handleHomes(CommandSender sender, String[] args) {
+        if (args.length < 2) {
+            plugin.getMessageManager().sendPrefixed(sender, "admin.homes-usage");
+            return true;
+        }
+        String sub = args[1].toLowerCase(Locale.ROOT);
+        if (sub.equals("reload")) {
+            if (!sender.hasPermission("cpsmp.reload")) {
+                plugin.getMessageManager().sendPrefixed(sender, "general.no-permission");
+                return true;
+            }
+            plugin.getConfigManager().reloadTeleports();
+            CpsmpTeleportSubsystem ts = plugin.getTeleportSubsystem();
+            if (ts != null) {
+                ts.reload();
+            }
+            plugin.getMessageManager().sendPrefixed(sender, "admin.homes-reload-success");
+            return true;
+        }
+        if (sub.equals("info")) {
+            if (args.length < 3) {
+                plugin.getMessageManager().sendPrefixed(sender, "admin.homes-info-usage");
+                return true;
+            }
+            CpsmpTeleportSubsystem ts = plugin.getTeleportSubsystem();
+            if (ts == null || !ts.isStorageReady()) {
+                plugin.getMessageManager().sendPrefixed(sender, "admin.homes-storage-down");
+                return true;
+            }
+            String pname = args[2];
+            Player online = Bukkit.getPlayerExact(pname);
+            java.util.UUID uuid;
+            if (online != null) {
+                uuid = online.getUniqueId();
+            } else {
+                @SuppressWarnings("deprecation")
+                OfflinePlayer off = Bukkit.getOfflinePlayer(pname);
+                uuid = off.getUniqueId();
+            }
+            java.util.UUID idf = uuid;
+            ts.listHomes(idf).whenComplete((homes, ex) -> ts.runSync(() -> {
+                if (ex != null) {
+                    plugin.getMessageManager().sendPrefixed(sender, "admin.homes-storage-down");
+                    return;
+                }
+                int c = homes != null ? homes.size() : 0;
+                plugin.getMessageManager().sendPrefixed(sender, "admin.homes-info-header",
+                        Map.of("player", pname, "count", Integer.toString(c)));
+                if (homes == null || homes.isEmpty()) {
+                    return;
+                }
+                for (Home h : homes) {
+                    plugin.getMessageManager().sendPrefixed(sender, "admin.homes-info-row",
+                            Map.of("name", h.homeName(), "world", h.worldName()));
+                }
+            }));
+            return true;
+        }
+        if (sub.equals("delete")) {
+            if (args.length < 4) {
+                plugin.getMessageManager().sendPrefixed(sender, "admin.homes-delete-usage");
+                return true;
+            }
+            CpsmpTeleportSubsystem ts = plugin.getTeleportSubsystem();
+            if (ts == null || !ts.isStorageReady()) {
+                plugin.getMessageManager().sendPrefixed(sender, "admin.homes-storage-down");
+                return true;
+            }
+            String pname = args[2];
+            String homeName = args[3];
+            Player online = Bukkit.getPlayerExact(pname);
+            java.util.UUID uuid;
+            if (online != null) {
+                uuid = online.getUniqueId();
+            } else {
+                @SuppressWarnings("deprecation")
+                OfflinePlayer off = Bukkit.getOfflinePlayer(pname);
+                uuid = off.getUniqueId();
+            }
+            java.util.UUID idf = uuid;
+            ts.adminDeleteHome(idf, homeName).whenComplete((ok, ex) -> ts.runSync(() -> {
+                if (ex != null || !Boolean.TRUE.equals(ok)) {
+                    plugin.getMessageManager().sendPrefixed(sender, "admin.homes-delete-miss",
+                            Map.of("player", pname, "home", homeName));
+                    return;
+                }
+                plugin.getMessageManager().sendPrefixed(sender, "admin.homes-delete-ok",
+                        Map.of("player", pname, "home", homeName));
+            }));
+            return true;
+        }
+        plugin.getMessageManager().sendPrefixed(sender, "admin.homes-usage");
+        return true;
+    }
+
     private boolean handleReload(CommandSender sender) {
         if (!sender.hasPermission("cpsmp.reload")) {
             plugin.getMessageManager().sendPrefixed(sender, "general.no-permission");
@@ -350,6 +451,9 @@ public final class AdminCommand implements CommandExecutor, TabCompleter {
                 }
                 case "setzone" -> {
                     return filter(ZONES, args[1]);
+                }
+                case "homes" -> {
+                    return filter(HOMES_ACTIONS, args[1]);
                 }
                 default -> { /* fall through */ }
             }

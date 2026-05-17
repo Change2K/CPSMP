@@ -59,7 +59,8 @@ public final class TeleportService implements Listener {
     }
 
     /**
-     * Begins a delayed teleport.
+     * Begins a delayed teleport using {@code config.yml}
+     * {@code teleport.delay-seconds}.
      *
      * @param player      the player to teleport
      * @param destination the destination location (must have a loaded world)
@@ -68,6 +69,21 @@ public final class TeleportService implements Listener {
      */
     public void requestTeleport(Player player,
                                 Location destination,
+                                @Nullable Consumer<Player> onSuccess,
+                                @Nullable Consumer<Player> onCancel) {
+        int delaySeconds = Math.max(0, plugin.getConfig().getInt("teleport.delay-seconds", 3));
+        requestTeleport(player, destination, delaySeconds, onSuccess, onCancel);
+    }
+
+    /**
+     * Begins a delayed teleport with an explicit countdown (Homes / TPA).
+     * Uses the same movement / damage cancellation rules as /smpspawn.
+     *
+     * @param delaySeconds seconds to wait; {@code 0} teleports immediately
+     */
+    public void requestTeleport(Player player,
+                                Location destination,
+                                int delaySeconds,
                                 @Nullable Consumer<Player> onSuccess,
                                 @Nullable Consumer<Player> onCancel) {
         Objects.requireNonNull(player);
@@ -83,9 +99,9 @@ public final class TeleportService implements Listener {
         // Replace any previously-pending teleport.
         cancel(player, false);
 
-        int delaySeconds = Math.max(0, plugin.getConfig().getInt("teleport.delay-seconds", 3));
+        int delay = Math.max(0, delaySeconds);
 
-        if (delaySeconds == 0) {
+        if (delay == 0) {
             performTeleport(player, destination, onSuccess);
             return;
         }
@@ -96,7 +112,7 @@ public final class TeleportService implements Listener {
                 player.getUniqueId(),
                 player.getLocation().clone(),
                 destination,
-                delaySeconds,
+                delay,
                 onSuccess,
                 onCancel
         );
@@ -173,6 +189,26 @@ public final class TeleportService implements Listener {
 
     public boolean isPending(UUID playerId) {
         return pending.containsKey(playerId);
+    }
+
+    /**
+     * Cancels a pending teleport and shows a configurable messages.yml line
+     * (e.g. combat cancellation for Homes / TPA countdowns).
+     */
+    public void cancelWithMessage(Player player, String messageKey) {
+        PendingTeleport entry = pending.remove(player.getUniqueId());
+        if (entry == null) {
+            return;
+        }
+        if (entry.task != null) {
+            entry.task.cancel();
+        }
+        if (player.isOnline()) {
+            plugin.getMessageManager().sendPrefixed(player, messageKey);
+        }
+        if (entry.onCancel != null) {
+            entry.onCancel.accept(player);
+        }
     }
 
     /**

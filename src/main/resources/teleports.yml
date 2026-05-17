@@ -1,0 +1,43 @@
+# CPSMP V3.0 — Homes, TPA, optional /back (SQLite via teleports.db).
+# Bukkit-Befehlskonflikte haengen von der Plugin-Ladereihenfolge ab;
+# in plugin.yml sind zusaetzliche /cp*-Aliase definiert (guaranteed fallback).
+
+storage:
+  file: teleports.db
+
+combat:
+  tag-seconds: 15
+  block-homes: true
+  block-tpa: true
+
+homes:
+  enabled: true
+  gui-enabled: true
+  integrate-cpsmp-zone-worlds: true
+  default-limit: 1
+  name-max-length: 16
+  sethome-cooldown-seconds: 0
+  teleport-delay-seconds: 3
+  cooldown-seconds: 10
+  allowed-worlds:
+    - smp
+  blocked-worlds:
+    - danger_zone
+    - attack_zone
+
+tpa:
+  enabled: true
+  tpahere-enabled: true
+  integrate-cpsmp-zone-worlds: true
+  request-expire-seconds: 60
+  teleport-delay-seconds: 3
+  cooldown-seconds: 15
+  allowed-worlds:
+    - smp
+  blocked-worlds:
+    - danger_zone
+    - attack_zone
+
+back:
+  enabled: false
+  cooldown-seconds: 30

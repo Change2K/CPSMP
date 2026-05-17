@@ -1,6 +1,10 @@
-# CPSMP zone definitions.
-# Two zones are supported: "danger" and "attack".
-# Set spawns in-game via /cpsmpadmin setzone <danger|attack>.
+world-inventory:
+  preserve-between-cpsmp-worlds: true
+  shared-worlds:
+    - smp
+    - danger_zone
+    - attack_zone
+  warn-if-external-inventory-plugin-detected: true
 
 zones:
   danger:

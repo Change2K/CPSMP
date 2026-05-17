@@ -71,6 +71,12 @@ The cooldown is also **not written** for bypassing players, so subsequent
 calls remain instant. The configured `rtp.cooldown-seconds` is preserved and
 still applies to everyone else.
 
+## V3.0 Homes, TPA, and inventories
+
+- **Homes / TPA / optional `/back`** use `teleports.yml`, German strings in `messages.yml`, and SQLite (`teleports.db` by default) for `player_homes` and `teleport_back_locations` when Homes or `/back` are enabled. Cooldown bypass uses `cpsmp.home.bypasscooldown`, `cpsmp.tpa.bypasscooldown`, or OP.
+- **Command conflicts**: Bukkit resolves overlapping command names by plugin load order. CPSMP registers duplicate **`cp*`-prefixed** commands in `plugin.yml` (`/cphome`, `/cptpa`, …) as a stable fallback without unregistering other plugins' commands. Startup may log a German hint if a primary name is owned by another plugin (`messages.yml` → `admin.log.*`).
+- **Inventories**: CPSMP does not clear or migrate inventories on `/smpspawn`, `/rtp`, portals, zones, Homes, or TPA. If you use Multiverse-Inventories, PerWorldInventory, or similar, configure one shared group for your SMP gameplay worlds.
+
 ## Updating to a newer Paper / Minecraft version
 
 1. Bump the `paper.api.version` property in `pom.xml`:

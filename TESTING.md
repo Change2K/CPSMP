@@ -1,13 +1,15 @@
-# CPSMP manual test checklist (V2.6)
+# CPSMP manual test checklist (V3.0)
 
 Use this list before promoting a build to production. Player-facing strings are German (`messages.yml`); this document is English for operators.
+
+V3.0 adds **Homes**, **TPA**, optional **`/back`**, and `teleports.yml` (plus `teleports.db` when Homes or `/back` are enabled). `/spawn` remains **unregistered** by CPSMP.
 
 ## Local server setup
 
 1. Java **21**, **Paper 1.21.4** (or your supported target from `COMPATIBILITY.md`).
 2. Drop `CPSMP-*.jar` in `plugins/`.
 3. Start once to generate default configs.
-4. Configure `config.yml` (spawn, RTP, portals, zones), `economy.yml`, `auctionhouse.yml`, `portals.yml`, `zones.yml` as needed.
+4. Configure `config.yml` (spawn, RTP, portals, zones), `teleports.yml` (Homes / TPA / back), `economy.yml`, `auctionhouse.yml`, `portals.yml`, `zones.yml` as needed.
 
 ## Required plugins (by scenario)
 
@@ -25,6 +27,29 @@ Use this list before promoting a build to production. Player-facing strings are 
 - `/ah` — Auction House hub / GUI (`cpsmp.ah` + sub-permissions).
 
 Confirm `/spawn` is **not** registered by CPSMP (by design).
+
+## Homes / TPA (V3.0)
+
+- **`/sethome` / `/cpsethome`**: set a named home in an allowed world; invalid names rejected; blocked worlds reject with `home.set-disabled-world`.
+- **`/home` / `/cphome`**: delayed teleport; cancel on move/damage/combat when configured; unloaded home world → `general.world-missing`.
+- **`/homes` / `/cphomes`**: GUI when `homes.gui-enabled` and `cpsmp.home.gui`; otherwise chat list (`home.list-*`).
+- **`/delhome` / `/cpdelhome`**: delete a home.
+- **Limits**: `cpsmp.homes.*` and `homes.default-limit` (highest permission wins).
+- **Cooldowns**: home teleport, sethome, TPA request; OP + `cpsmp.home.bypasscooldown` / `cpsmp.tpa.bypasscooldown` bypass.
+- **TPA**: `/tpa`, `/cptpa`, `/tpaccept`, `/tpdeny`, optional `/tpahere` / `/cptpahere`; expiry; one pending incoming per target.
+- **World rules**: `teleports.yml` allow/block lists + optional CPSMP zone world integration.
+- **Command fallback**: if another plugin owns `/home`, verify `/cphome`; check console for `admin.log.command-conflict`.
+- **Admin**: `/cpsmpadmin homes info|delete|reload`.
+
+## Inventory transfer (V3.0)
+
+1. Fill inventory, armor, and offhand; move SMP → Danger (portal) → SMP → Attack (portal).
+2. Items should persist. CPSMP does not implement per-world inventory; external plugins must use a shared group for gameplay worlds.
+
+## Homes reload / persistence
+
+- `/cpsmpadmin reload` or `homes reload`: TPA cleared, Homes GUI closed, `teleports.yml` re-read; DB file not duplicated.
+- Restart server: homes rows persist in `teleports.db`.
 
 ## Portal test
 

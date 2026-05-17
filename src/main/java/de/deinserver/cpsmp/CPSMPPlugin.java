@@ -10,10 +10,24 @@ import de.deinserver.cpsmp.compat.PaperTeleportAdapter;
 import de.deinserver.cpsmp.compat.ServerCompatibility;
 import de.deinserver.cpsmp.compat.TeleportAdapter;
 import de.deinserver.cpsmp.economy.EconomyManager;
+import de.deinserver.cpsmp.teleport.BackCommand;
+import de.deinserver.cpsmp.teleport.CommandOwnershipDiagnostics;
+import de.deinserver.cpsmp.teleport.CpsmpTeleportSubsystem;
+import de.deinserver.cpsmp.teleport.DelHomeCommand;
+import de.deinserver.cpsmp.teleport.HomeCommand;
+import de.deinserver.cpsmp.teleport.HomesCommand;
+import de.deinserver.cpsmp.teleport.SetHomeCommand;
+import de.deinserver.cpsmp.teleport.TeleportCommandsTabCompleter;
+import de.deinserver.cpsmp.teleport.TpAcceptCommand;
+import de.deinserver.cpsmp.teleport.TpDenyCommand;
+import de.deinserver.cpsmp.teleport.TpaCommand;
+import de.deinserver.cpsmp.teleport.TpaKind;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
+import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.PluginCommand;
+import org.bukkit.command.TabCompleter;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.jetbrains.annotations.Nullable;
@@ -23,14 +37,8 @@ import org.jetbrains.annotations.Nullable;
  * listeners, and exposes shared helpers used across the plugin (spawn lookup,
  * persistent spawn write, global reload).
  *
- * <p>V2.1 added the Auction House backend ({@link AuctionHouseManager},
- * {@link AuctionCommand}). V2.2 added the browse / buy backend flow.
- * V2.3 adds the premium German GUI on top ({@link AuctionGuiManager} +
- * {@link AuctionGuiClickListener}). V2.4 adds the GUI sell flow with
- * Paper {@link org.bukkit.inventory.view.AnvilView}-based price entry
- * routed through {@link AuctionHouseManager#createListing}. V2.6 focuses
- * on production hardening (reload safety, config validation, permissions).
- * Homes, TPA and Claims are still intentionally out of scope.
+ * <p>V3.0 adds Homes, TPA and optional /back via
+ * {@link CpsmpTeleportSubsystem}. Claims remain out of scope.</p>
  */
 public final class CPSMPPlugin extends JavaPlugin {
 
@@ -47,6 +55,7 @@ public final class CPSMPPlugin extends JavaPlugin {
     private PortalListener portalListener;
     private ZoneManager zoneManager;
     private ZoneListener zoneListener;
+    private @Nullable CpsmpTeleportSubsystem teleportSubsystem;
     private AuctionHouseManager auctionHouseManager;
     private AuctionGuiManager auctionGuiManager;
     private AuctionGuiClickListener auctionGuiListener;
@@ -107,11 +116,44 @@ public final class CPSMPPlugin extends JavaPlugin {
         this.zoneListener = new ZoneListener(this);
         this.zoneListener.register();
 
+        this.teleportSubsystem = new CpsmpTeleportSubsystem(this);
+        this.teleportSubsystem.enable();
+        TeleportCommandsTabCompleter teleportTab = new TeleportCommandsTabCompleter();
+        SetHomeCommand setHome = new SetHomeCommand(this);
+        registerExecutorAndTab("sethome", setHome, teleportTab);
+        registerExecutorAndTab("cpsethome", setHome, teleportTab);
+        HomeCommand homeCmd = new HomeCommand(this);
+        registerExecutorAndTab("home", homeCmd, teleportTab);
+        registerExecutorAndTab("cphome", homeCmd, teleportTab);
+        HomesCommand homesCmd = new HomesCommand(this);
+        registerExecutorAndTab("homes", homesCmd, teleportTab);
+        registerExecutorAndTab("cphomes", homesCmd, teleportTab);
+        DelHomeCommand delHome = new DelHomeCommand(this);
+        registerExecutorAndTab("delhome", delHome, teleportTab);
+        registerExecutorAndTab("cpdelhome", delHome, teleportTab);
+        TpaCommand tpaCmd = new TpaCommand(this, TpaKind.TPA);
+        registerExecutorAndTab("tpa", tpaCmd, teleportTab);
+        registerExecutorAndTab("cptpa", tpaCmd, teleportTab);
+        TpaCommand tpaHere = new TpaCommand(this, TpaKind.HERE);
+        registerExecutorAndTab("tpahere", tpaHere, teleportTab);
+        registerExecutorAndTab("cptpahere", tpaHere, teleportTab);
+        TpAcceptCommand tpAccept = new TpAcceptCommand(this);
+        registerExecutorAndTab("tpaccept", tpAccept, teleportTab);
+        registerExecutorAndTab("cptpaccept", tpAccept, teleportTab);
+        TpDenyCommand tpDeny = new TpDenyCommand(this);
+        registerExecutorAndTab("tpdeny", tpDeny, teleportTab);
+        registerExecutorAndTab("cptpdeny", tpDeny, teleportTab);
+        BackCommand backCmd = new BackCommand(this);
+        registerExecutorAndTab("back", backCmd, teleportTab);
+        registerExecutorAndTab("cpback", backCmd, teleportTab);
+
+        CommandOwnershipDiagnostics.log(this);
+
         // /spawn is intentionally NOT registered: the bare /spawn name is
         // reserved for another plugin on the network. CPSMP exposes only
         // /smpspawn for its own spawn teleport.
-        registerCommand("smpspawn", new SpawnCommand(this));
-        registerCommand("rtp", new RTPCommand(this));
+        registerExecutorAndTab("smpspawn", new SpawnCommand(this), null);
+        registerExecutorAndTab("rtp", new RTPCommand(this), null);
         AdminCommand adminCommand = new AdminCommand(this);
         PluginCommand admin = getCommand("cpsmpadmin");
         if (admin != null) {
@@ -133,30 +175,43 @@ public final class CPSMPPlugin extends JavaPlugin {
             ah.setTabCompleter(auctionCommand);
         }
 
-        getLogger().info("CPSMP V2.6 enabled.");
+        getLogger().info("CPSMP V3.0 enabled.");
     }
 
     @Override
     public void onDisable() {
         if (portalListener != null) portalListener.shutdown();
         if (zoneListener != null) zoneListener.shutdown();
-        if (teleportService != null) teleportService.shutdown();
+        if (teleportService != null) {
+            teleportService.shutdown();
+        }
+        if (teleportSubsystem != null) {
+            teleportSubsystem.disable();
+        }
         // Close every open AH GUI before touching the backend so the
         // listener does not see stale references after disable.
         if (auctionGuiManager != null) auctionGuiManager.closeAll();
         // Disable the Auction House after closing GUIs so it can drain
         // pending DB work and close its SQLite handle cleanly.
         if (auctionHouseManager != null) auctionHouseManager.disable();
-        getLogger().info("CPSMP V2.6 disabled.");
+        getLogger().info("CPSMP V3.0 disabled.");
     }
 
-    private void registerCommand(String name, org.bukkit.command.CommandExecutor executor) {
+    private void registerExecutorAndTab(String name, CommandExecutor executor, @Nullable TabCompleter tab) {
         PluginCommand command = getCommand(name);
         if (command == null) {
             getLogger().warning("Command '" + name + "' is not declared in plugin.yml.");
             return;
         }
         command.setExecutor(executor);
+        command.setTabCompleter(tab);
+    }
+
+    /**
+     * V3.0 Homes / TPA / back subsystem. Null only before {@link #onEnable()} finishes.
+     */
+    public @Nullable CpsmpTeleportSubsystem getTeleportSubsystem() {
+        return teleportSubsystem;
     }
 
     /**
@@ -188,6 +243,9 @@ public final class CPSMPPlugin extends JavaPlugin {
         }
         if (portalListener != null) {
             portalListener.restartScanTask();
+        }
+        if (teleportSubsystem != null) {
+            teleportSubsystem.reload();
         }
     }
 

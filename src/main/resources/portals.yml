@@ -55,8 +55,8 @@ portals:
     cooldown-ms: 4000
     sound: "ENTITY_ENDERMAN_TELEPORT"
     particles: "REVERSE_PORTAL"
-    title: "RTP"
-    subtitle: "Dein Abenteuer beginnt."
+    title: "<gradient:#f6d365:#fda085>Wildnis</gradient>"
+    subtitle: "<gray>Suche dir deinen Platz in der Welt.</gray>"
     actionbar: "<gold>Zufaelliger Teleport...</gold>"
     # RTP portals ignore "target" and use rtp settings instead.
 

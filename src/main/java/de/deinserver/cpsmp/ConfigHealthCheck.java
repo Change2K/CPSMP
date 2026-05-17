@@ -53,5 +53,16 @@ public final class ConfigHealthCheck {
             plugin.getLogger().warning("[CPSMP] Konfiguration: spawn.world '" + spawnWorld
                     + "' ist derzeit nicht geladen. /smpspawn kann fehlschlagen, bis die Welt existiert.");
         }
+
+        org.bukkit.configuration.file.FileConfiguration tp = plugin.getConfigManager().getTeleports();
+        if (tp == null) {
+            plugin.getLogger().warning("[CPSMP] Konfiguration: teleports.yml wurde nicht geladen.");
+        }
+
+        FileConfiguration zonesRoot = plugin.getConfigManager().getZones();
+        if (zonesRoot != null && !zonesRoot.getBoolean("world-inventory.preserve-between-cpsmp-worlds", true)) {
+            plugin.getLogger().warning("[CPSMP] Hinweis: world-inventory.preserve-between-cpsmp-worlds ist false. "
+                    + "CPSMP selbst veraendert keine Inventare; das betrifft nur deine Serverdokumentation/Erwartung.");
+        }
     }
 }
