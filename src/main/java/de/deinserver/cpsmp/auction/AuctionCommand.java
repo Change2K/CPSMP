@@ -2,7 +2,6 @@ package de.deinserver.cpsmp.auction;
 
 import de.deinserver.cpsmp.CPSMPPlugin;
 import de.deinserver.cpsmp.MessageManager;
-import de.deinserver.cpsmp.auction.AuctionBrowseSort;
 import de.deinserver.cpsmp.auction.gui.AuctionGuiManager;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.command.Command;
@@ -337,7 +336,7 @@ public final class AuctionCommand implements CommandExecutor, TabCompleter {
         }
         m.sendPrefixed(sender, "auction.search-header", Map.of("query", query));
         auction.browseListings(1, auction.getConfig().getBrowsePageSize(),
-                AuctionBrowseSort.NEWEST, query).thenAccept(page -> {
+                auction.getConfig().getGuiBrowseDefaultSort(), query).thenAccept(page -> {
             if (page.totalListings() == 0) {
                 m.sendPrefixed(sender, "auction.search-empty");
                 return;

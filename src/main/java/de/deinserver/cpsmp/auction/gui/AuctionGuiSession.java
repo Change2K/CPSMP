@@ -91,6 +91,14 @@ public final class AuctionGuiSession implements InventoryHolder {
     @Nullable
     private String browseSearchFilter;
 
+    /**
+     * Incremented on each browse load start; async
+     * {@link java.util.concurrent.CompletableFuture} callbacks ignore stale
+     * generations so out-of-order DB completions never repopulate the GUI
+     * with an older sort or page.
+     */
+    private int browseFetchGeneration;
+
     public AuctionGuiSession(UUID playerId) {
         this.playerId = playerId;
     }
@@ -256,5 +264,17 @@ public final class AuctionGuiSession implements InventoryHolder {
         } else {
             this.browseSearchFilter = query.trim();
         }
+    }
+
+    /**
+     * Call at the start of each browse load; the returned value must match
+     * {@link #getBrowseFetchGeneration()} when the load completes.
+     */
+    int beginBrowseFetch() {
+        return ++browseFetchGeneration;
+    }
+
+    int getBrowseFetchGeneration() {
+        return browseFetchGeneration;
     }
 }

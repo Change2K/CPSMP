@@ -70,15 +70,18 @@ public final class AuctionListingSearch {
     }
 
     public static void sort(List<AuctionListing> listings, AuctionBrowseSort sort) {
+        // Tie-break listing_id must match SQLiteAuctionStorage.orderByClause so
+        // search (in-memory) and SQL-backed browse agree when many rows share
+        // the same created_at / price millisecond or price value.
         Comparator<AuctionListing> cmp = switch (sort) {
             case NEWEST -> Comparator.comparingLong(AuctionListing::createdAt).reversed()
-                    .thenComparingLong(AuctionListing::listingId);
+                    .thenComparing(Comparator.comparingLong(AuctionListing::listingId).reversed());
             case OLDEST -> Comparator.comparingLong(AuctionListing::createdAt)
                     .thenComparingLong(AuctionListing::listingId);
             case PRICE_ASC -> Comparator.comparingDouble(AuctionListing::price)
                     .thenComparingLong(AuctionListing::listingId);
             case PRICE_DESC -> Comparator.comparingDouble(AuctionListing::price).reversed()
-                    .thenComparingLong(AuctionListing::listingId);
+                    .thenComparing(Comparator.comparingLong(AuctionListing::listingId).reversed());
             case EXPIRING_SOON -> Comparator.comparingLong(AuctionListing::expiresAt)
                     .thenComparingLong(AuctionListing::listingId);
         };

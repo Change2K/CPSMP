@@ -563,20 +563,20 @@ public final class AuctionHouseManager {
 
     /**
      * Fetches a page of ACTIVE non-expired listings for {@code /ah browse}.
-     * Newest-first, no search filter — equivalent to
-     * {@link #browseListings(int, int, AuctionBrowseSort, String)} with
-     * {@link AuctionBrowseSort#NEWEST} and no query.
+     * Uses {@link AuctionConfig#getGuiBrowseDefaultSort} and no search filter
+     * — the same default ordering as the GUI market when no per-player sort
+     * override is in play.
      */
     public CompletableFuture<BrowsePage> browseListings(int requestedPage) {
         return browseListings(requestedPage, config.getBrowsePageSize(),
-                AuctionBrowseSort.NEWEST, null);
+                config.getGuiBrowseDefaultSort(), null);
     }
 
     /**
      * Same as {@link #browseListings(int)} with an explicit page size.
      */
     public CompletableFuture<BrowsePage> browseListings(int requestedPage, int pageSize) {
-        return browseListings(requestedPage, pageSize, AuctionBrowseSort.NEWEST, null);
+        return browseListings(requestedPage, pageSize, config.getGuiBrowseDefaultSort(), null);
     }
 
     /**
@@ -598,6 +598,10 @@ public final class AuctionHouseManager {
         String q = searchQuery == null ? null : searchQuery.trim();
         final boolean useSearch = q != null && !q.isEmpty();
         runDb(() -> {
+            if (config.isDebug()) {
+                plugin.getLogger().info("[AH] browse sort=" + effectiveSort + " search="
+                        + useSearch + " page=" + requestedPage);
+            }
             if (!useSearch) {
                 int total = storage.countActiveBrowse(now);
                 if (total == 0) {

@@ -376,8 +376,10 @@ public final class AuctionGuiManager {
         int gridSlots = (rows - 1) * 9;
         AuctionBrowseSort sort = session.effectiveBrowseSort(cfg.getGuiBrowseDefaultSort());
         String q = session.getBrowseSearchFilter();
+        final int fetchGen = session.beginBrowseFetch();
         auction.browseListings(page, gridSlots, sort, q).thenAccept(browsePage -> {
             if (!player.isOnline()) return;
+            if (fetchGen != session.getBrowseFetchGeneration()) return;
             session.setVisibleListings(browsePage.listings());
             session.setCurrentPage(browsePage.page());
             Inventory inv = buildBrowse(session, browsePage);
