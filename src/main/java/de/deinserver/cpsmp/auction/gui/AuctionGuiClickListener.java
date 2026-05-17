@@ -1,5 +1,6 @@
 package de.deinserver.cpsmp.auction.gui;
 
+import org.bukkit.entity.HumanEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -9,40 +10,22 @@ import org.bukkit.event.inventory.InventoryAction;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
+import org.bukkit.event.inventory.InventoryType;
+import org.bukkit.event.inventory.PrepareAnvilEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.InventoryView;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.view.AnvilView;
 
 /**
- * Single source of truth for Auction House GUI interaction. Every
- * mitigation lives here so anyone auditing dupe-protection can read
- * one file:
- *
- * <ul>
- *     <li>Scoped by holder. We only act when the <em>top</em> inventory
- *         of the view is one we created (its holder is an
- *         {@link AuctionGuiSession}). Other plugins' inventories and
- *         vanilla containers are ignored entirely.</li>
- *     <li>Every {@link InventoryClickEvent} inside an AH GUI is
- *         cancelled before any logic runs. Cancellation blocks the
- *         vanilla side-effect for shift-click, number-key swap,
- *         double-click stack pick-up, drop, control-drop, swap-offhand
- *         and creative click - regardless of what we choose to dispatch
- *         afterwards.</li>
- *     <li>Only "neutral" click types (LEFT, RIGHT, MIDDLE) reach the
- *         manager dispatcher. SHIFT_LEFT/SHIFT_RIGHT/NUMBER_KEY/
- *         DOUBLE_CLICK/DROP/CONTROL_DROP/SWAP_OFFHAND/CREATIVE/UNKNOWN
- *         all stay cancelled but do <em>not</em> trigger any action,
- *         which keeps a misclick from accidentally buying an item.</li>
- *     <li>{@link InventoryDragEvent} is cancelled the moment any of its
- *         raw slots overlap with the top inventory.</li>
- *     <li>{@link InventoryCloseEvent} drives session teardown. Identity
- *         check on the closed inventory ensures the implicit close
- *         fired by Bukkit when we open a follow-up screen doesn't tear
- *         the session down.</li>
- * </ul>
+ * Single source of truth for Auction House GUI interaction, including
+ * the V2.4 sell-flow anvil (still Bukkit/Paper public API only).
  */
 public final class AuctionGuiClickListener implements Listener {
+
+    private static final int SELL_INPUT_SLOT = 13;
 
     private final AuctionGuiManager manager;
 
@@ -50,38 +33,129 @@ public final class AuctionGuiClickListener implements Listener {
         this.manager = manager;
     }
 
-    @SuppressWarnings({"deprecation", "removal"}) // HOTBAR_MOVE_AND_READD listed defensively for legacy Paper builds
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onQuit(PlayerQuitEvent event) {
+        manager.handlePlayerQuit(event.getPlayer());
+    }
+
+    /**
+     * Runs before vanilla anvil bookkeeping: cancelling here blocks result
+     * pickup, XP charges, and item movement for the virtual price editor.
+     */
+    @SuppressWarnings({"deprecation", "removal"})
+    @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = false)
+    public void onAnvilAwaitingClick(InventoryClickEvent event) {
+        InventoryView view = event.getView();
+        if (view.getTopInventory().getType() != InventoryType.ANVIL) {
+            return;
+        }
+        if (!(event.getWhoClicked() instanceof Player player)) {
+            return;
+        }
+        AuctionGuiSession session = manager.getSession(player.getUniqueId());
+        if (session == null || !session.isAwaitingAnvilPrice()) {
+            return;
+        }
+
+        ClickType type = event.getClick();
+        InventoryAction action = event.getAction();
+        if (isAnvilPriceInputBlocked(type, action)) {
+            event.setCancelled(true);
+            return;
+        }
+
+        int raw = event.getRawSlot();
+        Inventory top = view.getTopInventory();
+        int topSize = top.getSize();
+        Inventory clicked = event.getClickedInventory();
+
+        if (clicked == top || raw < topSize) {
+            event.setCancelled(true);
+            if (raw == 2
+                    && (type == ClickType.LEFT
+                    || type == ClickType.RIGHT
+                    || type == ClickType.MIDDLE)) {
+                manager.handleAnvilOutputClick(player, session, view, raw);
+            }
+        }
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false)
+    public void onPrepareAnvil(PrepareAnvilEvent event) {
+        InventoryView view = event.getView();
+        Player player = resolveAnvilOperator(view);
+        if (player == null) {
+            return;
+        }
+        AuctionGuiSession session = manager.getSession(player.getUniqueId());
+        if (session == null || !session.isAwaitingAnvilPrice()) {
+            return;
+        }
+        if (view instanceof AnvilView av) {
+            av.setRepairCost(0);
+            try {
+                av.setMaximumRepairCost(0);
+            } catch (Throwable ignored) {
+            }
+        }
+    }
+
+    private static boolean isAnvilPriceInputBlocked(ClickType type, InventoryAction action) {
+        if (type == ClickType.NUMBER_KEY
+                || type == ClickType.SWAP_OFFHAND
+                || type == ClickType.SHIFT_LEFT
+                || type == ClickType.SHIFT_RIGHT
+                || type == ClickType.DOUBLE_CLICK
+                || type == ClickType.DROP
+                || type == ClickType.CONTROL_DROP
+                || type == ClickType.CREATIVE
+                || type == ClickType.UNKNOWN) {
+            return true;
+        }
+        return action == InventoryAction.HOTBAR_SWAP
+                || action == InventoryAction.HOTBAR_MOVE_AND_READD
+                || action == InventoryAction.COLLECT_TO_CURSOR
+                || action == InventoryAction.CLONE_STACK
+                || action == InventoryAction.MOVE_TO_OTHER_INVENTORY;
+    }
+
+    @SuppressWarnings({"deprecation", "removal"})
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = false)
     public void onClick(InventoryClickEvent event) {
         InventoryView view = event.getView();
         Inventory top = view.getTopInventory();
-        InventoryHolder holder = top.getHolder();
-        if (!(holder instanceof AuctionGuiSession session)) {
-            return;
-        }
-        // First and most important: kill the side-effect of EVERY
-        // click while an AH GUI is open. This single line blocks
-        // shift-click moves, number-key swaps, drop keys, offhand
-        // swap, double-click hoover, and creative clicks - whether
-        // the click landed in the GUI or the player's inventory.
-        event.setCancelled(true);
 
         if (!(event.getWhoClicked() instanceof Player player)) {
             return;
         }
 
-        // Reject anything that isn't a clean left/right/middle click
-        // in the top inventory. We don't want a shift-click on the
-        // player inventory side to accidentally trigger a "buy" tile
-        // dispatch, and we don't want a number-key press to do
-        // anything either.
+        AuctionGuiSession session = manager.getSession(player.getUniqueId());
+
+        if (top.getType() == InventoryType.ANVIL
+                && session != null
+                && session.isAwaitingAnvilPrice()) {
+            // Handled exclusively in {@link #onAnvilAwaitingClick} (LOWEST).
+            return;
+        }
+
+        InventoryHolder holder = top.getHolder();
+        if (!(holder instanceof AuctionGuiSession ahSession)) {
+            return;
+        }
+
+        // ----- V2.4: sell GUI allows placing items in the input slot
+        if (ahSession.getCurrentScreen() == AuctionGuiSession.Screen.SELL) {
+            handleSellInventoryClick(event, player, ahSession, view, top);
+            return;
+        }
+
+        // ----- Standard CPSMP GUIs: cancel everything, then dispatch top clicks
+        event.setCancelled(true);
+
         ClickType type = event.getClick();
         if (type != ClickType.LEFT && type != ClickType.RIGHT && type != ClickType.MIDDLE) {
             return;
         }
-        // Defence in depth: forbid swap/move actions explicitly even
-        // for LEFT/RIGHT/MIDDLE click types (some launchers map the
-        // offhand swap to those internally).
         InventoryAction action = event.getAction();
         if (action == InventoryAction.HOTBAR_SWAP
                 || action == InventoryAction.HOTBAR_MOVE_AND_READD
@@ -93,27 +167,136 @@ public final class AuctionGuiClickListener implements Listener {
 
         Inventory clicked = event.getClickedInventory();
         if (clicked == null || clicked != top) {
-            // Click landed in the player's inventory (or outside).
-            // Already cancelled - just don't dispatch.
             return;
         }
 
-        manager.handleClick(player, session, event.getSlot());
+        manager.handleClick(player, ahSession, event.getSlot());
+    }
+
+    @SuppressWarnings({"deprecation", "removal"})
+    private void handleSellInventoryClick(InventoryClickEvent event,
+                                          Player player,
+                                          AuctionGuiSession session,
+                                          InventoryView view,
+                                          Inventory top) {
+        Inventory clicked = event.getClickedInventory();
+        ClickType type = event.getClick();
+
+        if ((type == ClickType.SHIFT_LEFT || type == ClickType.SHIFT_RIGHT)
+                && clicked == view.getBottomInventory()) {
+            event.setCancelled(true);
+            int slot = event.getSlot();
+            ItemStack stack = clicked.getItem(slot);
+            if (stack == null || stack.getType().isAir() || stack.getAmount() <= 0) {
+                return;
+            }
+            if (AuctionGuiItemKeys.isGuiItem(stack)) {
+                return;
+            }
+            ItemStack cur = top.getItem(SELL_INPUT_SLOT);
+            if (cur != null && !cur.getType().isAir()) {
+                manager.sendSellInputOccupiedMessage(player);
+                return;
+            }
+            ItemStack move = stack.clone();
+            clicked.setItem(slot, null);
+            top.setItem(SELL_INPUT_SLOT, move);
+            return;
+        }
+
+        if (type == ClickType.NUMBER_KEY
+                || type == ClickType.SWAP_OFFHAND
+                || type == ClickType.DROP
+                || type == ClickType.CONTROL_DROP
+                || type == ClickType.CREATIVE
+                || type == ClickType.UNKNOWN
+                || type == ClickType.DOUBLE_CLICK
+                || type == ClickType.SHIFT_LEFT
+                || type == ClickType.SHIFT_RIGHT) {
+            event.setCancelled(true);
+            return;
+        }
+
+        if (type != ClickType.LEFT && type != ClickType.RIGHT && type != ClickType.MIDDLE) {
+            event.setCancelled(true);
+            return;
+        }
+
+        InventoryAction action = event.getAction();
+        if (action == InventoryAction.HOTBAR_SWAP
+                || action == InventoryAction.HOTBAR_MOVE_AND_READD
+                || action == InventoryAction.COLLECT_TO_CURSOR
+                || action == InventoryAction.CLONE_STACK) {
+            event.setCancelled(true);
+            return;
+        }
+
+        int rawSlot = event.getRawSlot();
+        int topSize = top.getSize();
+
+        // Allow moves between player inventory and the single input slot only.
+        if (clicked == top && event.getSlot() == SELL_INPUT_SLOT) {
+            if (action == InventoryAction.MOVE_TO_OTHER_INVENTORY) {
+                event.setCancelled(true);
+                return;
+            }
+            event.setCancelled(false);
+            return;
+        }
+        if (clicked == view.getBottomInventory()) {
+            if (action == InventoryAction.MOVE_TO_OTHER_INVENTORY) {
+                // Shift-move into the sell GUI would target arbitrary slots.
+                event.setCancelled(true);
+                return;
+            }
+            event.setCancelled(false);
+            return;
+        }
+        if (clicked == top && rawSlot < topSize && event.getSlot() != SELL_INPUT_SLOT) {
+            event.setCancelled(true);
+            manager.handleClickSellButtons(player, session, event.getSlot());
+        }
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = false)
     public void onDrag(InventoryDragEvent event) {
+        if (!(event.getWhoClicked() instanceof Player player)) {
+            return;
+        }
         InventoryView view = event.getView();
         Inventory top = view.getTopInventory();
-        if (!(top.getHolder() instanceof AuctionGuiSession)) {
+        AuctionGuiSession session = manager.getSession(player.getUniqueId());
+
+        if (top.getType() == InventoryType.ANVIL
+                && session != null
+                && session.isAwaitingAnvilPrice()) {
+            for (int rawSlot : event.getRawSlots()) {
+                if (rawSlot < top.getSize()) {
+                    event.setCancelled(true);
+                    return;
+                }
+            }
+            return;
+        }
+
+        if (!(top.getHolder() instanceof AuctionGuiSession ahSession)) {
             return;
         }
         int topSize = top.getSize();
+
+        if (ahSession.getCurrentScreen() == AuctionGuiSession.Screen.SELL) {
+            for (int rawSlot : event.getRawSlots()) {
+                if (rawSlot < topSize && rawSlot != SELL_INPUT_SLOT) {
+                    event.setCancelled(true);
+                    return;
+                }
+            }
+            event.setCancelled(false);
+            return;
+        }
+
         for (int rawSlot : event.getRawSlots()) {
             if (rawSlot < topSize) {
-                // The drag touches at least one slot in our GUI.
-                // Cancel the whole drag - we never allow players to
-                // place items into the AH inventory.
                 event.setCancelled(true);
                 return;
             }
@@ -122,14 +305,30 @@ public final class AuctionGuiClickListener implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onClose(InventoryCloseEvent event) {
-        Inventory closed = event.getInventory();
-        InventoryHolder holder = closed.getHolder();
-        if (!(holder instanceof AuctionGuiSession session)) {
+        if (!(event.getPlayer() instanceof Player player)) {
             return;
         }
-        // Identity-scoped teardown. See class javadoc - this is the
-        // anti "open-replaces-old-inventory close event tears the
-        // session down" guard.
-        manager.handleClose(session.getPlayerId(), closed);
+        Inventory closed = event.getInventory();
+
+        if (closed.getHolder() instanceof AuctionGuiSession session) {
+            manager.handleSessionHolderClose(player, session, closed);
+            return;
+        }
+
+        if (closed.getType() == InventoryType.ANVIL) {
+            AuctionGuiSession s = manager.getSession(player.getUniqueId());
+            if (s != null) {
+                manager.handleAnvilClose(player, s);
+            }
+        }
+    }
+
+    private static Player resolveAnvilOperator(InventoryView view) {
+        for (HumanEntity he : view.getTopInventory().getViewers()) {
+            if (he instanceof Player p) {
+                return p;
+            }
+        }
+        return null;
     }
 }

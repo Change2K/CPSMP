@@ -3,6 +3,7 @@ package de.deinserver.cpsmp;
 import de.deinserver.cpsmp.auction.AuctionCommand;
 import de.deinserver.cpsmp.auction.AuctionHouseManager;
 import de.deinserver.cpsmp.auction.gui.AuctionGuiClickListener;
+import de.deinserver.cpsmp.auction.gui.AuctionGuiItemKeys;
 import de.deinserver.cpsmp.auction.gui.AuctionGuiManager;
 import de.deinserver.cpsmp.compat.BukkitTeleportAdapter;
 import de.deinserver.cpsmp.compat.PaperTeleportAdapter;
@@ -25,8 +26,11 @@ import org.jetbrains.annotations.Nullable;
  * <p>V2.1 added the Auction House backend ({@link AuctionHouseManager},
  * {@link AuctionCommand}). V2.2 added the browse / buy backend flow.
  * V2.3 adds the premium German GUI on top ({@link AuctionGuiManager} +
- * {@link AuctionGuiClickListener}). Homes, TPA and Claims are still
- * intentionally out of scope and planned for later versions.
+ * {@link AuctionGuiClickListener}). V2.4 adds the GUI sell flow with
+ * Paper {@link org.bukkit.inventory.view.AnvilView}-based price entry
+ * routed through {@link AuctionHouseManager#createListing}. Homes, TPA
+ * and Claims are still intentionally out of scope and planned for later
+ * versions.
  */
 public final class CPSMPPlugin extends JavaPlugin {
 
@@ -82,6 +86,8 @@ public final class CPSMPPlugin extends JavaPlugin {
         this.auctionHouseManager = new AuctionHouseManager(this);
         this.auctionHouseManager.enable();
 
+        AuctionGuiItemKeys.init(this);
+
         this.teleportService = new TeleportService(this);
         this.teleportService.register();
 
@@ -126,7 +132,7 @@ public final class CPSMPPlugin extends JavaPlugin {
             ah.setTabCompleter(auctionCommand);
         }
 
-        getLogger().info("CPSMP V2.3 enabled.");
+        getLogger().info("CPSMP V2.4 enabled.");
     }
 
     @Override
@@ -140,7 +146,7 @@ public final class CPSMPPlugin extends JavaPlugin {
         // Disable the Auction House after closing GUIs so it can drain
         // pending DB work and close its SQLite handle cleanly.
         if (auctionHouseManager != null) auctionHouseManager.disable();
-        getLogger().info("CPSMP V2.3 disabled.");
+        getLogger().info("CPSMP V2.4 disabled.");
     }
 
     private void registerCommand(String name, org.bukkit.command.CommandExecutor executor) {

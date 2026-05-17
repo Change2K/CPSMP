@@ -24,6 +24,19 @@ public final class AuctionPriceParser {
      *         finite non-negative value, otherwise {@link Result#invalid()}.
      */
     public static Result parse(String raw) {
+        return parseInternal(raw, false);
+    }
+
+    /**
+     * Like {@link #parse(String)} but rejects zero as well as negatives.
+     * Used by the V2.4 Anvil rename field so {@code "0"} never reaches
+     * {@link AuctionHouseManager#createListing} with a pointless round-trip.
+     */
+    public static Result parseStrictPositive(String raw) {
+        return parseInternal(raw, true);
+    }
+
+    private static Result parseInternal(String raw, boolean rejectZero) {
         if (raw == null) {
             return Result.invalid();
         }
@@ -31,14 +44,10 @@ public final class AuctionPriceParser {
         if (trimmed.isEmpty()) {
             return Result.invalid();
         }
-        // Accept German "1234,50" as well as English "1234.50".
-        String normalized = trimmed.replace(',', '.');
-        // Strip thousands separators in either notation ("1.000" / "1 000").
-        // This is intentionally simple; the dot is already the decimal
-        // separator after the replace above, so we only strip ASCII
-        // whitespace and the narrow no-break space sometimes copied from
-        // websites.
-        normalized = normalized.replace(" ", "").replace("\u202F", "");
+        String normalized = normalizePriceInput(trimmed);
+        if (normalized == null) {
+            return Result.invalid();
+        }
 
         double value;
         try {
@@ -49,11 +58,47 @@ public final class AuctionPriceParser {
         if (Double.isNaN(value) || Double.isInfinite(value) || value < 0.0D) {
             return Result.invalid();
         }
+        if (rejectZero && value <= 0.0D) {
+            return Result.invalid();
+        }
         // Round to two decimal places so the persisted value matches what
         // the seller typed and what we display back. Avoids 0.30000000004
         // style drift on later formatting.
         double rounded = Math.round(value * 100.0D) / 100.0D;
+        if (rejectZero && rounded <= 0.0D) {
+            return Result.invalid();
+        }
         return Result.ok(rounded);
+    }
+
+    /**
+     * Normalizes free-form GUI / Anvil text into a string suitable for
+     * {@link Double#parseDouble(String)}:
+     * <ul>
+     *     <li>{@code "1,000"} / {@code "12,345.67"} (US thousands) &mdash;
+     *         commas stripped</li>
+     *     <li>{@code "12,50"} / {@code "3,5"} (decimal comma, no dot)
+     *         &mdash; single comma becomes the decimal separator</li>
+     *     <li>{@code "1234.50"} &mdash; period decimal as usual</li>
+     * </ul>
+     */
+    static String normalizePriceInput(String trimmed) {
+        String work = trimmed.replace(" ", "").replace("\u202F", "");
+        if (work.contains(",")) {
+            int lastComma = work.lastIndexOf(',');
+            String afterComma = work.substring(lastComma + 1);
+            boolean noDot = !work.contains(".");
+            // European-style decimal: at most two digits after the last comma,
+            // no dot elsewhere (e.g. 12,50 or 3,5 but not 1,000).
+            if (noDot
+                    && afterComma.length() <= 2
+                    && afterComma.chars().allMatch(Character::isDigit)) {
+                return work.replace(',', '.');
+            }
+            // Otherwise treat commas as US-style thousands separators.
+            return work.replace(",", "");
+        }
+        return work;
     }
 
     public record Result(boolean ok, double value) {

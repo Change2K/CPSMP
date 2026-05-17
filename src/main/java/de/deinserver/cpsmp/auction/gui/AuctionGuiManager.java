@@ -7,8 +7,12 @@ import de.deinserver.cpsmp.auction.AuctionConfig;
 import de.deinserver.cpsmp.auction.AuctionHouseManager;
 import de.deinserver.cpsmp.auction.AuctionListing;
 import de.deinserver.cpsmp.auction.AuctionPermission;
+import de.deinserver.cpsmp.auction.AuctionPriceParser;
+import de.deinserver.cpsmp.auction.gui.AuctionGuiItemKeys;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
+import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
@@ -31,7 +35,9 @@ import java.util.logging.Level;
  * {@code createListing} / {@code cancelListing} / {@code collectAll} /
  * {@code collectOne} / {@code buyListing} / {@code browseListings} /
  * {@code getActiveListings} / {@code getCollectItems}). No buy /
- * cancel / collect logic is duplicated here.
+ * cancel / collect / listing <em>transaction</em> logic is duplicated
+ * here. V2.4 routes GUI selling through {@code createListing} after
+ * optional read-only validation for faster feedback.
  *
  * <p>Threading: every public entry point is called from the main
  * server thread (either directly from a command, or from a
@@ -43,11 +49,25 @@ public final class AuctionGuiManager {
 
     // -------- Main GUI slot layout (3 rows = 27 slots) ---------------------
 
-    private static final int MAIN_SLOT_BROWSE = 11;
-    private static final int MAIN_SLOT_LISTINGS = 13;
-    private static final int MAIN_SLOT_COLLECT = 15;
+    private static final int MAIN_SLOT_BROWSE = 10;
+    private static final int MAIN_SLOT_SELL = 12;
+    private static final int MAIN_SLOT_LISTINGS = 14;
+    private static final int MAIN_SLOT_COLLECT = 16;
     private static final int MAIN_SLOT_INFO = 22;
     private static final int MAIN_SLOT_CLOSE = 26;
+
+    // -------- Sell GUI (3 rows) -------------------------------------------
+
+    private static final int SELL_INPUT_SLOT = 13;
+    private static final int SELL_SLOT_SET_PRICE = 11;
+    private static final int SELL_SLOT_CANCEL = 15;
+    private static final int SELL_SLOT_BACK = 22;
+
+    // -------- Sell confirm GUI (3 rows) -------------------------------------
+
+    private static final int SELL_CONFIRM_SLOT_CREATE = 11;
+    private static final int SELL_CONFIRM_SLOT_ITEM = 13;
+    private static final int SELL_CONFIRM_SLOT_CANCEL = 15;
 
     // -------- Browse / Listings / Collect navigation row layout ------------
 
@@ -104,6 +124,19 @@ public final class AuctionGuiManager {
     public void closeAll() {
         for (UUID id : new java.util.ArrayList<>(sessions.keySet())) {
             Player p = Bukkit.getPlayer(id);
+            AuctionGuiSession s = sessions.get(id);
+            if (s != null) {
+                ItemStack escrow = s.takePendingSellEscrow();
+                if (p != null && p.isOnline() && escrow != null) {
+                    if (!AuctionGuiItemKeys.isGuiItem(escrow)) {
+                        auction.safeReturnItemOrCollect(p, escrow);
+                    } else {
+                        plugin.getLogger().warning("[AH-GUI] Dropping GUI-tagged escrow on plugin disable for "
+                                + p.getName());
+                    }
+                }
+                s.clearSellFlowState();
+            }
             if (p != null && p.isOnline()) {
                 p.closeInventory();
             }
@@ -148,17 +181,67 @@ public final class AuctionGuiManager {
         loadCollectAndOpen(player, session);
     }
 
-    /** Called by the listener when a player closes the active inventory. */
-    public void handleClose(UUID playerId, Inventory closed) {
-        AuctionGuiSession session = sessions.get(playerId);
-        if (session == null) return;
-        // Only tear the session down when the inventory that closed is
-        // the one we currently track. Bukkit fires CloseEvent for the
-        // previous inventory when we open a new screen, and we must
-        // ignore that case.
-        if (sessionInventory(session) == closed) {
-            sessions.remove(playerId);
+    /** @return null if the player has no open Auction GUI session */
+    @Nullable
+    public AuctionGuiSession getSession(UUID playerId) {
+        return sessions.get(playerId);
+    }
+
+    /**
+     * Runs when a {@link AuctionGuiSession} inventory closes. Handles
+     * sell-slot returns and optional session teardown.
+     */
+    public void handleSessionHolderClose(Player player, AuctionGuiSession session, Inventory closed) {
+        if (session.consumeSellToAnvilTransition()) {
+            return;
         }
+        if (session.getCurrentScreen() == AuctionGuiSession.Screen.SELL_CONFIRM) {
+            ItemStack escrow = session.takePendingSellEscrow();
+            session.setPendingSellConfirmPrice(null);
+            if (escrow != null) {
+                if (AuctionGuiItemKeys.isGuiItem(escrow)) {
+                    plugin.getLogger().warning("[AH-GUI] Dropping GUI-tagged escrow on confirm close for "
+                            + player.getName());
+                } else {
+                    auction.safeReturnItemOrCollect(player, escrow);
+                    messages.sendPrefixed(player, "auction.gui.sell-item-returned");
+                }
+            }
+        } else if (session.getCurrentScreen() == AuctionGuiSession.Screen.SELL) {
+            ItemStack inSlot = closed.getItem(SELL_INPUT_SLOT);
+            if (inSlot != null && !inSlot.getType().isAir()) {
+                closed.setItem(SELL_INPUT_SLOT, null);
+                if (AuctionGuiItemKeys.isGuiItem(inSlot)) {
+                    plugin.getLogger().warning("[AH-GUI] Dropping GUI chrome from sell slot on close for "
+                            + player.getName());
+                } else {
+                    auction.safeReturnItemOrCollect(player, inSlot);
+                    messages.sendPrefixed(player, "auction.gui.sell-item-returned");
+                }
+            }
+        }
+        if (sessionInventory(session) == closed) {
+            sessions.remove(player.getUniqueId());
+        }
+    }
+
+    /**
+     * Player quit while a sell / anvil / confirm flow might still hold
+     * escrow outside any inventory.
+     */
+    public void handlePlayerQuit(Player player) {
+        UUID id = player.getUniqueId();
+        AuctionGuiSession s = sessions.remove(id);
+        if (s == null) {
+            return;
+        }
+        ItemStack escrow = s.takePendingSellEscrow();
+        if (escrow != null && !AuctionGuiItemKeys.isGuiItem(escrow)) {
+            auction.safeReturnItemOrCollect(player, escrow);
+        } else if (escrow != null) {
+            plugin.getLogger().warning("[AH-GUI] Dropping GUI-tagged escrow on quit for " + player.getName());
+        }
+        s.clearSellFlowState();
     }
 
     /** Called by the listener for every valid click in a session GUI. */
@@ -168,7 +251,9 @@ public final class AuctionGuiManager {
             case BROWSE -> handleClickBrowse(player, session, slot);
             case LISTINGS -> handleClickListings(player, session, slot);
             case COLLECT -> handleClickCollect(player, session, slot);
-            case CONFIRM -> handleClickConfirm(player, session, slot);
+            case CONFIRM -> handleClickBuyConfirm(player, session, slot);
+            case SELL -> handleClickSellButtons(player, session, slot);
+            case SELL_CONFIRM -> handleClickSellConfirm(player, session, slot);
         }
     }
 
@@ -223,6 +308,9 @@ public final class AuctionGuiManager {
         Inventory inv = createInventory(session, size, "auction.gui.main-title");
         fill(inv, cfg);
         inv.setItem(clamp(MAIN_SLOT_BROWSE, size), items.mainButtonBrowse());
+        if (cfg.isGuiSellEnabled()) {
+            inv.setItem(clamp(MAIN_SLOT_SELL, size), items.mainButtonSell());
+        }
         inv.setItem(clamp(MAIN_SLOT_LISTINGS, size), items.mainButtonListings());
         inv.setItem(clamp(MAIN_SLOT_COLLECT, size), items.mainButtonCollect());
         inv.setItem(clamp(MAIN_SLOT_INFO, size), items.mainButtonInfo());
@@ -231,8 +319,15 @@ public final class AuctionGuiManager {
     }
 
     private void handleClickMain(Player player, AuctionGuiSession session, int slot) {
+        AuctionConfig cfg = auction.getConfig();
         switch (slot) {
             case MAIN_SLOT_BROWSE -> openBrowse(player, 1);
+            case MAIN_SLOT_SELL -> {
+                if (!cfg.isGuiSellEnabled()) {
+                    return;
+                }
+                openSell(player);
+            }
             case MAIN_SLOT_LISTINGS -> openListings(player, 1);
             case MAIN_SLOT_COLLECT -> openCollect(player);
             case MAIN_SLOT_INFO -> {
@@ -540,7 +635,7 @@ public final class AuctionGuiManager {
         return inv;
     }
 
-    private void handleClickConfirm(Player player, AuctionGuiSession session, int slot) {
+    private void handleClickBuyConfirm(Player player, AuctionGuiSession session, int slot) {
         AuctionListing pending = session.getPendingConfirmListing();
         if (pending == null) {
             openBrowse(player, 1);
@@ -616,6 +711,358 @@ public final class AuctionGuiManager {
                 }
             }
         });
+    }
+
+    // ----------------------------------------------------------- V2.4 sell GUI
+
+    public void openSell(Player player) {
+        if (!checkGuiOrFallback(player)) return;
+        AuctionConfig cfg = auction.getConfig();
+        if (!cfg.isGuiSellEnabled()) {
+            messages.sendPrefixed(player, "auction.disabled");
+            return;
+        }
+        if (!player.hasPermission(AuctionPermission.SELL)) {
+            messages.sendPrefixed(player, "auction.no-permission");
+            return;
+        }
+        AuctionGuiSession session = ensureSession(player);
+        session.clearSellFlowState();
+        Inventory inv = buildSell(session);
+        showInventory(player, session, AuctionGuiSession.Screen.SELL, inv);
+    }
+
+    private Inventory buildSell(AuctionGuiSession session) {
+        AuctionConfig cfg = auction.getConfig();
+        int rows = 3;
+        int size = rows * 9;
+        Inventory inv = createInventory(session, size, "auction.gui.sell-title");
+        fill(inv, cfg);
+        inv.setItem(SELL_INPUT_SLOT, null);
+        inv.setItem(SELL_SLOT_SET_PRICE, items.sellSetPriceButton());
+        inv.setItem(SELL_SLOT_CANCEL, items.sellAbortButton());
+        inv.setItem(SELL_SLOT_BACK, items.sellBackButton());
+        return inv;
+    }
+
+    /**
+     * Button-only clicks on the sell GUI top inventory (input + player
+     * inventory interactions bypass this).
+     */
+    void handleClickSellButtons(Player player, AuctionGuiSession session, int slot) {
+        AuctionConfig cfg = auction.getConfig();
+        switch (slot) {
+            case SELL_SLOT_SET_PRICE -> beginAnvilPriceEntry(player, session, cfg);
+            case SELL_SLOT_BACK -> {
+                returnSellInputSlotToPlayer(player, player.getOpenInventory().getTopInventory());
+                messages.sendPrefixed(player, "auction.gui.sell-cancelled");
+                openMain(player);
+            }
+            case SELL_SLOT_CANCEL -> {
+                returnSellInputSlotToPlayer(player, player.getOpenInventory().getTopInventory());
+                messages.sendPrefixed(player, "auction.gui.sell-cancelled");
+                player.closeInventory();
+            }
+            default -> { /* filler */ }
+        }
+    }
+
+    private void returnSellInputSlotToPlayer(Player player, Inventory top) {
+        ItemStack s = top.getItem(SELL_INPUT_SLOT);
+        if (s != null && !s.getType().isAir()) {
+            top.setItem(SELL_INPUT_SLOT, null);
+            if (AuctionGuiItemKeys.isGuiItem(s)) {
+                plugin.getLogger().warning("[AH-GUI] Dropping GUI chrome from sell slot for " + player.getName());
+                return;
+            }
+            auction.safeReturnItemOrCollect(player, s);
+            messages.sendPrefixed(player, "auction.gui.sell-item-returned");
+        }
+    }
+
+    private void beginAnvilPriceEntry(Player player, AuctionGuiSession session, AuctionConfig cfg) {
+        Inventory top = player.getOpenInventory().getTopInventory();
+        if (top.getHolder() != session || session.getCurrentScreen() != AuctionGuiSession.Screen.SELL) {
+            return;
+        }
+        ItemStack listed = top.getItem(SELL_INPUT_SLOT);
+        if (listed == null || listed.getType().isAir() || listed.getAmount() <= 0) {
+            messages.sendPrefixed(player, "auction.gui.sell-no-item");
+            return;
+        }
+        if (!listed.getType().isItem()) {
+            messages.sendPrefixed(player, "auction.invalid-item");
+            return;
+        }
+        if (AuctionGuiItemKeys.isGuiItem(listed)) {
+            messages.sendPrefixed(player, "auction.gui.sell-no-item");
+            return;
+        }
+        if (cfg.getBlockedMaterials().contains(listed.getType())) {
+            messages.sendPrefixed(player, "auction.blocked-item",
+                    Map.of("material", listed.getType().name()));
+            return;
+        }
+        if (!cfg.isGuiSellUseAnvilPriceInput()) {
+            messages.sendPrefixed(player, "auction.help-sell");
+            return;
+        }
+
+        ItemStack escrow = listed.clone();
+        top.setItem(SELL_INPUT_SLOT, null);
+        session.setPendingSellEscrow(escrow);
+        session.setSellToAnvilTransition(true);
+        session.setAwaitingAnvilPrice(true);
+
+        Location loc = player.getLocation();
+        openAnvilVirtual(player, loc);
+        Bukkit.getScheduler().runTask(plugin, () -> primeAnvilPaperTemplate(player, session));
+    }
+
+    /**
+     * Paper still routes virtual anvils through {@link Player#openAnvil(
+     * Location, boolean)}; newer API entries may supersede this in a
+     * future Paper release without changing our AnvilView-based rename
+     * plumbing.
+     */
+    @SuppressWarnings("deprecation")
+    private static void openAnvilVirtual(Player player, Location loc) {
+        player.openAnvil(loc, true);
+    }
+
+    private void primeAnvilPaperTemplate(Player player, AuctionGuiSession session) {
+        if (!player.isOnline() || !session.isAwaitingAnvilPrice()) {
+            return;
+        }
+        org.bukkit.inventory.InventoryView view = player.getOpenInventory();
+        if (view.getTopInventory().getType() != org.bukkit.event.inventory.InventoryType.ANVIL) {
+            abortAnvilFlow(player, session, "auction.gui.sell-session-expired");
+            return;
+        }
+        org.bukkit.inventory.ItemStack t = items.anvilPriceTemplatePaper();
+        view.getTopInventory().setItem(0, t);
+        applyZeroAnvilRepairCost(view);
+    }
+
+    private static void applyZeroAnvilRepairCost(org.bukkit.inventory.InventoryView view) {
+        if (!(view instanceof org.bukkit.inventory.view.AnvilView av)) {
+            return;
+        }
+        av.setRepairCost(0);
+        try {
+            av.setMaximumRepairCost(0);
+        } catch (Throwable ignored) {
+        }
+    }
+
+    private static void clearAnvilOutputAndCursor(Player player, org.bukkit.inventory.InventoryView view) {
+        player.setItemOnCursor(null);
+        view.getTopInventory().setItem(2, null);
+        applyZeroAnvilRepairCost(view);
+    }
+
+    /**
+     * Called from the click listener when the player clicks the anvil
+     * output slot. Uses {@link org.bukkit.inventory.view.AnvilView
+     * #getRenameText()} (Paper) — never {@code AnvilInventory#getRenameText}.
+     */
+    public void handleAnvilOutputClick(Player player, AuctionGuiSession session,
+                                       org.bukkit.inventory.InventoryView view, int rawSlot) {
+        player.setItemOnCursor(null);
+        if (!session.isAwaitingAnvilPrice() || rawSlot != 2) {
+            return;
+        }
+        if (!(view instanceof org.bukkit.inventory.view.AnvilView anvilView)) {
+            messages.sendPrefixed(player, "auction.gui.sell-session-expired");
+            abortAnvilFlow(player, session, null);
+            return;
+        }
+        String rename;
+        try {
+            rename = anvilView.getRenameText();
+        } catch (Throwable t) {
+            plugin.getLogger().log(Level.WARNING, "AnvilView#getRenameText() unavailable", t);
+            messages.sendPrefixed(player, "auction.gui.sell-session-expired");
+            abortAnvilFlow(player, session, null);
+            return;
+        }
+        AuctionPriceParser.Result parsed = AuctionPriceParser.parseStrictPositive(rename);
+        if (!parsed.ok()) {
+            messages.sendPrefixed(player, "auction.gui.sell-invalid-price");
+            clearAnvilOutputAndCursor(player, view);
+            Bukkit.getScheduler().runTask(plugin, () -> primeAnvilPaperTemplate(player, session));
+            return;
+        }
+        AuctionConfig cfg = auction.getConfig();
+        if (!validateParsedPrice(player, cfg, parsed.value())) {
+            clearAnvilOutputAndCursor(player, view);
+            Bukkit.getScheduler().runTask(plugin, () -> primeAnvilPaperTemplate(player, session));
+            return;
+        }
+        session.setAwaitingAnvilPrice(false);
+        session.setPendingSellConfirmPrice(parsed.value());
+        player.setItemOnCursor(null);
+        view.getTopInventory().clear();
+        applyZeroAnvilRepairCost(view);
+        player.closeInventory();
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            if (!player.isOnline()) return;
+            openSellConfirm(player, session);
+        });
+    }
+
+    private boolean validateParsedPrice(Player player, AuctionConfig cfg, double price) {
+        if (price < cfg.getMinPrice()) {
+            messages.sendPrefixed(player, "auction.price-too-low",
+                    Map.of("min", auction.formatPrice(cfg.getMinPrice())));
+            return false;
+        }
+        if (price > cfg.getMaxPrice()) {
+            messages.sendPrefixed(player, "auction.price-too-high",
+                    Map.of("max", auction.formatPrice(cfg.getMaxPrice())));
+            return false;
+        }
+        return true;
+    }
+
+    /** Anvil closed without submitting a valid price — reopen sell GUI. */
+    public void handleAnvilClose(Player player, AuctionGuiSession session) {
+        if (!session.isAwaitingAnvilPrice()) {
+            return;
+        }
+        player.setItemOnCursor(null);
+        session.setAwaitingAnvilPrice(false);
+        ItemStack escrow = session.takePendingSellEscrow();
+        session.setSellToAnvilTransition(false);
+        if (!player.isOnline()) {
+            if (escrow != null) {
+                auction.safeReturnItemOrCollect(player, escrow);
+            }
+            return;
+        }
+        Inventory inv = buildSell(session);
+        showInventory(player, session, AuctionGuiSession.Screen.SELL, inv);
+        if (escrow != null) {
+            player.getOpenInventory().getTopInventory().setItem(SELL_INPUT_SLOT, escrow.clone());
+        }
+    }
+
+    private void abortAnvilFlow(Player player, AuctionGuiSession session, @Nullable String messageKey) {
+        session.setAwaitingAnvilPrice(false);
+        if (player.isOnline()) {
+            player.setItemOnCursor(null);
+        }
+        ItemStack escrow = session.takePendingSellEscrow();
+        session.setSellToAnvilTransition(false);
+        if (escrow != null) {
+            auction.safeReturnItemOrCollect(player, escrow);
+        }
+        if (messageKey != null && player.isOnline()) {
+            messages.sendPrefixed(player, messageKey);
+        }
+    }
+
+    private void openSellConfirm(Player player, AuctionGuiSession session) {
+        ItemStack escrow = session.getPendingSellEscrow();
+        Double price = session.getPendingSellConfirmPrice();
+        if (escrow == null || price == null) {
+            messages.sendPrefixed(player, "auction.gui.sell-session-expired");
+            openMain(player);
+            return;
+        }
+        Inventory inv = buildSellConfirm(session, escrow, price);
+        showInventory(player, session, AuctionGuiSession.Screen.SELL_CONFIRM, inv);
+    }
+
+    private Inventory buildSellConfirm(AuctionGuiSession session, ItemStack escrow, double price) {
+        AuctionConfig cfg = auction.getConfig();
+        int size = 27;
+        Inventory inv = createInventory(session, size, "auction.gui.sell-confirm-title");
+        fill(inv, cfg);
+        inv.setItem(SELL_CONFIRM_SLOT_ITEM, items.sellConfirmPreview(escrow, price, cfg));
+        inv.setItem(SELL_CONFIRM_SLOT_CREATE, items.sellConfirmCreateButton());
+        inv.setItem(SELL_CONFIRM_SLOT_CANCEL, items.sellConfirmCancelButton());
+        return inv;
+    }
+
+    void handleClickSellConfirm(Player player, AuctionGuiSession session, int slot) {
+        switch (slot) {
+            case SELL_CONFIRM_SLOT_CREATE -> performCreateListingFromGui(player, session);
+            case SELL_CONFIRM_SLOT_CANCEL -> {
+                ItemStack escrow = session.takePendingSellEscrow();
+                session.setPendingSellConfirmPrice(null);
+                if (escrow != null) {
+                    if (AuctionGuiItemKeys.isGuiItem(escrow)) {
+                        plugin.getLogger().warning("[AH-GUI] Dropping GUI-tagged escrow on sell-confirm cancel for "
+                                + player.getName());
+                    } else {
+                        auction.safeReturnItemOrCollect(player, escrow);
+                        messages.sendPrefixed(player, "auction.gui.sell-item-returned");
+                    }
+                }
+                messages.sendPrefixed(player, "auction.gui.sell-cancelled");
+                openMain(player);
+            }
+            default -> { }
+        }
+    }
+
+    private void performCreateListingFromGui(Player player, AuctionGuiSession session) {
+        ItemStack escrow = session.takePendingSellEscrow();
+        Double priceObj = session.getPendingSellConfirmPrice();
+        session.setPendingSellConfirmPrice(null);
+        if (escrow == null || priceObj == null) {
+            messages.sendPrefixed(player, "auction.gui.sell-session-expired");
+            openMain(player);
+            return;
+        }
+        double price = priceObj;
+        auction.createListing(player, escrow, price).thenAccept(result -> {
+            switch (result) {
+                case AuctionHouseManager.ListingCreateResult.Success s -> {
+                    Map<String, String> ph = new HashMap<>();
+                    ph.put("id", Long.toString(s.listingId()));
+                    ph.put("item", s.snapshot().getType().name());
+                    ph.put("amount", Integer.toString(s.snapshot().getAmount()));
+                    ph.put("price", auction.formatPrice(s.price()));
+                    messages.sendPrefixed(player, "auction.gui.sell-created", ph);
+                    session.clearSellFlowState();
+                    if (player.isOnline()) {
+                        navigateAfterSellCreate(player);
+                    }
+                }
+                case AuctionHouseManager.ListingCreateResult.Failure f -> {
+                    messages.sendPrefixed(player, f.messageKey(), f.placeholders());
+                    if ("auction.storage-error".equals(f.messageKey())) {
+                        session.clearSellFlowState();
+                        if (player.isOnline()) {
+                            openMain(player);
+                        }
+                    } else {
+                        session.setPendingSellEscrow(escrow);
+                        session.setPendingSellConfirmPrice(price);
+                        if (player.isOnline()) {
+                            openSellConfirm(player, session);
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    void sendSellInputOccupiedMessage(Player player) {
+        messages.sendPrefixed(player, "auction.gui.sell-input-occupied");
+    }
+
+    private void navigateAfterSellCreate(Player player) {
+        AuctionConfig cfg = auction.getConfig();
+        if (cfg.isGuiSellOpenListingsAfterCreate()) {
+            openListings(player, 1);
+        } else if (cfg.isGuiSellReturnToMainAfterCreate()) {
+            openMain(player);
+        } else {
+            openMain(player);
+        }
     }
 
     // --------------------------------------------------------------- helpers

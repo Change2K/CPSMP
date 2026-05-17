@@ -1,6 +1,7 @@
 package de.deinserver.cpsmp.auction;
 
 import de.deinserver.cpsmp.CPSMPPlugin;
+import de.deinserver.cpsmp.auction.gui.AuctionGuiItemKeys;
 import de.deinserver.cpsmp.economy.EconomyBridge;
 import de.deinserver.cpsmp.economy.EconomyManager;
 import de.deinserver.cpsmp.economy.EconomyTransactionResult;
@@ -251,14 +252,59 @@ public final class AuctionHouseManager {
                     "auction.price-too-high",
                     Map.of("max", formatMoney(config.getMaxPrice()))));
         }
+        return createListingFromSnapshot(seller, hand.clone(), price, true);
+    }
 
-        // Snapshot the hand so subsequent player actions cannot mutate
-        // the value we're about to validate, charge for and persist.
-        final ItemStack snapshot = hand.clone();
+    /**
+     * Creates an ACTIVE listing from an explicit stack (GUI escrow). Does not
+     * read, clear, or modify the player's main hand or any other inventory slot.
+     */
+    public CompletableFuture<ListingCreateResult> createListing(Player seller,
+                                                                ItemStack offeredItem,
+                                                                double price) {
+        if (!active) {
+            return CompletableFuture.completedFuture(ListingCreateResult.failure("auction.disabled"));
+        }
+        if (offeredItem == null || offeredItem.getType().isAir() || offeredItem.getAmount() <= 0) {
+            return CompletableFuture.completedFuture(ListingCreateResult.failure("auction.invalid-item"));
+        }
+        Material type = offeredItem.getType();
+        if (!type.isItem()) {
+            return CompletableFuture.completedFuture(ListingCreateResult.failure("auction.invalid-item"));
+        }
+        if (AuctionGuiItemKeys.hasInitialized() && AuctionGuiItemKeys.isGuiItem(offeredItem)) {
+            return CompletableFuture.completedFuture(ListingCreateResult.failure("auction.invalid-item"));
+        }
+        if (config.getBlockedMaterials().contains(type)) {
+            return CompletableFuture.completedFuture(ListingCreateResult.failure(
+                    "auction.blocked-item",
+                    Map.of("material", type.name())));
+        }
+        if (price < config.getMinPrice()) {
+            return CompletableFuture.completedFuture(ListingCreateResult.failure(
+                    "auction.price-too-low",
+                    Map.of("min", formatMoney(config.getMinPrice()))));
+        }
+        if (price > config.getMaxPrice()) {
+            return CompletableFuture.completedFuture(ListingCreateResult.failure(
+                    "auction.price-too-high",
+                    Map.of("max", formatMoney(config.getMaxPrice()))));
+        }
+        return createListingFromSnapshot(seller, offeredItem.clone(), price, false);
+    }
+
+    /**
+     * Shared listing creation: {@code snapshot} is an isolated clone; when
+     * {@code consumeFromMainHand} is {@code true} the main hand is cleared
+     * after the fee succeeds (command flow). When {@code false}, no inventory
+     * slot is touched (GUI escrow flow).
+     */
+    private CompletableFuture<ListingCreateResult> createListingFromSnapshot(Player seller,
+                                                                             ItemStack snapshot,
+                                                                             double price,
+                                                                             boolean consumeFromMainHand) {
         final UUID sellerId = seller.getUniqueId();
         final String sellerName = seller.getName();
-
-        // Active-listing count requires the DB; do it on the executor.
         CompletableFuture<ListingCreateResult> out = new CompletableFuture<>();
         runDb(() -> storage.countListingsBySellerAndStatus(sellerId, AuctionListingStatus.ACTIVE))
                 .whenComplete((count, countEx) -> runOnMain(() -> {
@@ -275,25 +321,19 @@ public final class AuctionHouseManager {
                         return;
                     }
 
-                    // Re-verify the player is online and still holds the
-                    // exact item we validated. Equality uses Bukkit's
-                    // isSimilar()+amount check so meta differences caused
-                    // by e.g. enchanting in the meantime are caught.
                     if (!seller.isOnline()) {
                         out.complete(ListingCreateResult.failure("auction.invalid-item"));
                         return;
                     }
-                    ItemStack currentHand = seller.getInventory().getItemInMainHand();
-                    if (currentHand == null || !currentHand.isSimilar(snapshot)
-                            || currentHand.getAmount() != snapshot.getAmount()) {
-                        out.complete(ListingCreateResult.failure("auction.invalid-item"));
-                        return;
+                    if (consumeFromMainHand) {
+                        ItemStack currentHand = seller.getInventory().getItemInMainHand();
+                        if (currentHand == null || !currentHand.isSimilar(snapshot)
+                                || currentHand.getAmount() != snapshot.getAmount()) {
+                            out.complete(ListingCreateResult.failure("auction.invalid-item"));
+                            return;
+                        }
                     }
 
-                    // Economy gate. Two layers:
-                    //   (a) fee > 0 requires an available bridge.
-                    //   (b) the config flag require-economy-for-auction-house
-                    //       gates selling entirely.
                     EconomyManager economyManager = plugin.getEconomyManager();
                     boolean requireEconomy = requireEconomyForAuctionHouse();
                     double fee = config.getListingFee();
@@ -306,17 +346,15 @@ public final class AuctionHouseManager {
                         EconomyTransactionResult feeResult = economyManager.getBridge()
                                 .withdraw(sellerId, fee, "AH listing fee");
                         if (!feeResult.success()) {
-                            // Map the bridge reason key through so the
-                            // player sees e.g. "Du hast nicht genug Geld."
                             out.complete(ListingCreateResult.failure(feeResult.reasonKey()));
                             return;
                         }
                         charged = true;
                     }
 
-                    // Atomic hand clear. From here on, the item exists
-                    // only in `snapshot` until the DB insert lands.
-                    seller.getInventory().setItemInMainHand(null);
+                    if (consumeFromMainHand) {
+                        seller.getInventory().setItemInMainHand(null);
+                    }
 
                     long now = System.currentTimeMillis();
                     long expires = now + config.getDurationMillis();
@@ -326,10 +364,12 @@ public final class AuctionHouseManager {
                             .whenComplete((listingId, insertEx) -> runOnMain(() -> {
                                 if (insertEx != null) {
                                     logStorage("insertListing", insertEx);
-                                    // Restore the item and refund the
-                                    // fee before completing the future
-                                    // so the player ends up whole.
-                                    restoreAfterFailure(seller, snapshot, fee, finalCharged);
+                                    if (consumeFromMainHand) {
+                                        restoreAfterFailure(seller, snapshot, fee, finalCharged);
+                                    } else {
+                                        restoreAfterFailureWithoutMainHand(seller, snapshot,
+                                                fee, finalCharged);
+                                    }
                                     out.complete(ListingCreateResult.failure("auction.storage-error"));
                                     return;
                                 }
@@ -451,12 +491,13 @@ public final class AuctionHouseManager {
         UUID owner = player.getUniqueId();
         CompletableFuture<CollectResult> out = new CompletableFuture<>();
         runDb(() -> storage.getCollectItemsForOwner(owner))
-                .whenComplete((items, ex) -> runOnMain(() -> {
+                .whenComplete((rawItems, ex) -> runOnMain(() -> {
                     if (ex != null) {
                         logStorage("getCollectItemsForOwner", ex);
                         out.complete(CollectResult.failure("auction.storage-error"));
                         return;
                     }
+                    List<AuctionCollectItem> items = filterGuiMarkedCollectRows(owner, rawItems);
                     if (items.isEmpty()) {
                         out.complete(CollectResult.empty());
                         return;
@@ -596,6 +637,18 @@ public final class AuctionHouseManager {
                         out.complete(CollectOneResult.notFound());
                         return;
                     }
+                    if (AuctionGuiItemKeys.hasInitialized() && AuctionGuiItemKeys.isGuiItem(target.itemStack())) {
+                        long badId = target.collectId();
+                        plugin.getLogger().warning("[AH] Purging GUI-marked collect row " + badId + " for " + owner);
+                        runDb(() -> storage.deleteCollectItem(badId))
+                                .whenComplete((ok, dbEx) -> runOnMain(() -> {
+                                    if (dbEx != null) {
+                                        logStorage("collectOne/purge-gui", dbEx);
+                                    }
+                                    out.complete(CollectOneResult.notFound());
+                                }));
+                        return;
+                    }
                     if (!player.isOnline()) {
                         out.complete(CollectOneResult.failure("general.player-only"));
                         return;
@@ -653,7 +706,7 @@ public final class AuctionHouseManager {
                         out.complete(List.of());
                         return;
                     }
-                    out.complete(items);
+                    out.complete(filterGuiMarkedCollectRows(owner, items));
                 }));
         return out;
     }
@@ -1100,6 +1153,119 @@ public final class AuctionHouseManager {
                         + seller.getName() + " in collect storage: "
                         + ex.getMessage() + " (item type=" + snapshot.getType()
                         + " amount=" + snapshot.getAmount() + ")");
+            }
+        });
+    }
+
+    /**
+     * Same as {@link #restoreAfterFailure(Player, ItemStack, double, boolean)}
+     * for GUI listings: returns the snapshot via {@link #safeReturnItemOrCollect}
+     * instead of forcing the main hand.
+     */
+    private void restoreAfterFailureWithoutMainHand(Player seller,
+                                                    ItemStack snapshot,
+                                                    double fee,
+                                                    boolean charged) {
+        if (charged) {
+            EconomyTransactionResult refund = plugin.getEconomyManager().getBridge()
+                    .deposit(seller.getUniqueId(), fee, "AH listing fee refund (storage error)");
+            if (!refund.success()) {
+                plugin.getLogger().severe("[AH] Refund failed for " + seller.getName()
+                        + " amount=" + formatMoney(fee) + " reason=" + refund.reasonKey());
+            }
+        }
+        if (seller.isOnline()) {
+            safeReturnItemOrCollect(seller, snapshot.clone());
+        } else {
+            parkGuiReturnedItem(seller.getUniqueId(), snapshot.clone());
+        }
+    }
+
+    /**
+     * Drops CPSMP GUI chrome rows that were mistakenly parked in collect
+     * storage (PDC {@code auction_gui_item}). Legitimate items are never tagged.
+     */
+    private List<AuctionCollectItem> filterGuiMarkedCollectRows(UUID owner, List<AuctionCollectItem> fromDb) {
+        if (fromDb.isEmpty() || !AuctionGuiItemKeys.hasInitialized()) {
+            return fromDb;
+        }
+        List<Long> purgeIds = new ArrayList<>();
+        List<AuctionCollectItem> kept = new ArrayList<>();
+        for (AuctionCollectItem ci : fromDb) {
+            if (AuctionGuiItemKeys.isGuiItem(ci.itemStack())) {
+                purgeIds.add(ci.collectId());
+            } else {
+                kept.add(ci);
+            }
+        }
+        if (!purgeIds.isEmpty()) {
+            plugin.getLogger().warning("[AH] Removing " + purgeIds.size()
+                    + " orphaned CPSMP-GUI collect row(s) for " + owner);
+            runDb(() -> {
+                for (Long id : purgeIds) {
+                    storage.deleteCollectItem(id);
+                }
+                return null;
+            });
+        }
+        return kept;
+    }
+
+    /**
+     * Returns {@code stack} to an online player's inventory (empty main
+     * hand preferred, then {@link PlayerInventory#addItem(ItemStack...)}).
+     * Any remainder is written to collect storage with {@link
+     * AuctionCollectReason#SYSTEM_RETURN}. Does not touch economy.
+     *
+     * <p>Used by the V2.4 sell GUI when a flow is cancelled or the player
+     * disconnects while an item is held in GUI escrow. Listing creation
+     * from escrow uses {@link #createListing(Player, ItemStack, double)}
+     * (main hand unchanged); {@link #createListing(Player, double)} is
+     * for {@code /ah sell} only.
+     */
+    public void safeReturnItemOrCollect(Player player, ItemStack stack) {
+        if (!active || stack == null || stack.getType().isAir() || stack.getAmount() <= 0) {
+            return;
+        }
+        if (AuctionGuiItemKeys.hasInitialized() && AuctionGuiItemKeys.isGuiItem(stack)) {
+            plugin.getLogger().warning("[AH] Ignoring GUI-tagged item in safeReturnItemOrCollect for "
+                    + (player.isOnline() ? player.getName() : player.getUniqueId().toString()));
+            return;
+        }
+        if (!player.isOnline()) {
+            parkGuiReturnedItem(player.getUniqueId(), stack.clone());
+            return;
+        }
+        PlayerInventory inv = player.getInventory();
+        ItemStack hand = inv.getItemInMainHand();
+        if (hand == null || hand.getType().isAir()) {
+            inv.setItemInMainHand(stack.clone());
+            return;
+        }
+        var left = inv.addItem(stack.clone());
+        if (left.isEmpty()) {
+            return;
+        }
+        parkGuiReturnedItem(player.getUniqueId(), left.values().iterator().next());
+    }
+
+    private void parkGuiReturnedItem(UUID owner, ItemStack stack) {
+        if (AuctionGuiItemKeys.hasInitialized() && AuctionGuiItemKeys.isGuiItem(stack)) {
+            plugin.getLogger().warning("[AH] Ignoring GUI-tagged item in parkGuiReturnedItem for " + owner);
+            return;
+        }
+        runDb(() -> {
+            storage.insertCollectItem(
+                    owner,
+                    stack,
+                    AuctionCollectReason.SYSTEM_RETURN,
+                    System.currentTimeMillis(),
+                    null);
+            return null;
+        }).whenComplete((ignored, ex) -> {
+            if (ex != null) {
+                plugin.getLogger().severe("[AH] Failed to park GUI-returned item for "
+                        + owner + ": " + ex.getMessage());
             }
         });
     }

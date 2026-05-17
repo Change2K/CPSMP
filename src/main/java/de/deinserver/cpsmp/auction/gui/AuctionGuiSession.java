@@ -4,6 +4,7 @@ import de.deinserver.cpsmp.auction.AuctionCollectItem;
 import de.deinserver.cpsmp.auction.AuctionListing;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
+import org.bukkit.inventory.ItemStack;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -11,20 +12,9 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Per-player state for the V2.3 Auction House GUI. Implements
+ * Per-player state for the Auction House GUI. Implements
  * {@link InventoryHolder} so every CPSMP-owned inventory carries a
- * direct typed reference back to its session - the click listener uses
- * {@code event.getInventory().getHolder() instanceof AuctionGuiSession}
- * to scope its handling and refuses to touch any inventory created by
- * another plugin or by vanilla.
- *
- * <p>A session is created lazily when the player first runs {@code /ah}
- * (or any subcommand that opens a GUI) and is removed when the player
- * closes the active inventory. Each navigation step swaps
- * {@link #currentInventory} for the new screen; the close listener
- * uses identity comparison so the implicit close of the previous
- * inventory (fired by Bukkit when {@code openInventory} is called for
- * the next screen) does not tear the session down prematurely.
+ * direct typed reference back to its session.
  */
 public final class AuctionGuiSession implements InventoryHolder {
 
@@ -33,7 +23,12 @@ public final class AuctionGuiSession implements InventoryHolder {
         BROWSE,
         LISTINGS,
         COLLECT,
-        CONFIRM
+        /** Buying another player's listing (existing V2.3 flow). */
+        CONFIRM,
+        /** V2.4: place item + choose price via anvil. */
+        SELL,
+        /** V2.4: confirm listing before {@code createListing}. */
+        SELL_CONFIRM
     }
 
     private final UUID playerId;
@@ -45,38 +40,45 @@ public final class AuctionGuiSession implements InventoryHolder {
     private int currentPage = 1;
 
     /**
-     * Snapshot of the listings rendered in the most recent BROWSE or
-     * LISTINGS screen. Used to map a clicked slot back to a listing ID
-     * without re-querying the database.
+     * When {@code true}, the next {@link InventoryCloseEvent} for a
+     * session holder inventory is the expected teardown of the sell GUI
+     * right before {@code Player#openAnvil} &mdash; escrow has already
+     * been moved out of the closed inventory and must not be returned
+     * from the closed slots.
      */
+    private boolean sellToAnvilTransition;
+
+    /**
+     * Player has the sell GUI's item in escrow while the virtual anvil
+     * is open for price entry.
+     */
+    private boolean awaitingAnvilPrice;
+
+    /**
+     * Item removed from the sell input slot pending listing creation
+     * (held outside any inventory while the anvil / confirm GUIs are
+     * open).
+     */
+    @Nullable
+    private ItemStack pendingSellEscrow;
+
+    /**
+     * Price parsed from the anvil rename field, awaiting the confirm GUI.
+     */
+    @Nullable
+    private Double pendingSellConfirmPrice;
+
     @NotNull
     private List<AuctionListing> visibleListings = List.of();
 
-    /**
-     * Snapshot of the collect rows rendered in the most recent COLLECT
-     * screen. Same role as {@link #visibleListings} for the collect GUI.
-     */
     @NotNull
     private List<AuctionCollectItem> visibleCollect = List.of();
 
-    /**
-     * Listing under review when the screen is {@link Screen#CONFIRM}.
-     * Captured at confirmation time so the listing reference survives
-     * the GUI navigation back to BROWSE.
-     */
     @Nullable
     private AuctionListing pendingConfirmListing;
 
-    /**
-     * Screen to return to after the confirm GUI is dismissed. Defaults
-     * to {@link Screen#BROWSE}.
-     */
     private Screen confirmReturnScreen = Screen.BROWSE;
 
-    /**
-     * Page to restore on the return screen after the confirm GUI is
-     * dismissed.
-     */
     private int confirmReturnPage = 1;
 
     public AuctionGuiSession(UUID playerId) {
@@ -90,10 +92,6 @@ public final class AuctionGuiSession implements InventoryHolder {
     @Override
     @NotNull
     public Inventory getInventory() {
-        // Contract: a session is always created together with an
-        // inventory, so by the time anyone calls getInventory() the
-        // field is populated. The Nullable annotation on the field is
-        // just for the brief construction window.
         if (currentInventory == null) {
             throw new IllegalStateException("AuctionGuiSession has no inventory yet");
         }
@@ -118,6 +116,62 @@ public final class AuctionGuiSession implements InventoryHolder {
 
     public void setCurrentPage(int currentPage) {
         this.currentPage = Math.max(1, currentPage);
+    }
+
+    public boolean consumeSellToAnvilTransition() {
+        if (!sellToAnvilTransition) {
+            return false;
+        }
+        sellToAnvilTransition = false;
+        return true;
+    }
+
+    public void setSellToAnvilTransition(boolean sellToAnvilTransition) {
+        this.sellToAnvilTransition = sellToAnvilTransition;
+    }
+
+    public boolean isAwaitingAnvilPrice() {
+        return awaitingAnvilPrice;
+    }
+
+    public void setAwaitingAnvilPrice(boolean awaitingAnvilPrice) {
+        this.awaitingAnvilPrice = awaitingAnvilPrice;
+    }
+
+    @Nullable
+    public ItemStack getPendingSellEscrow() {
+        return pendingSellEscrow;
+    }
+
+    public void setPendingSellEscrow(@Nullable ItemStack pendingSellEscrow) {
+        this.pendingSellEscrow = pendingSellEscrow;
+    }
+
+    /**
+     * Clears escrow and returns the previous reference (caller owns the
+     * stack).
+     */
+    @Nullable
+    public ItemStack takePendingSellEscrow() {
+        ItemStack s = pendingSellEscrow;
+        pendingSellEscrow = null;
+        return s;
+    }
+
+    @Nullable
+    public Double getPendingSellConfirmPrice() {
+        return pendingSellConfirmPrice;
+    }
+
+    public void setPendingSellConfirmPrice(@Nullable Double pendingSellConfirmPrice) {
+        this.pendingSellConfirmPrice = pendingSellConfirmPrice;
+    }
+
+    public void clearSellFlowState() {
+        sellToAnvilTransition = false;
+        awaitingAnvilPrice = false;
+        pendingSellEscrow = null;
+        pendingSellConfirmPrice = null;
     }
 
     @NotNull

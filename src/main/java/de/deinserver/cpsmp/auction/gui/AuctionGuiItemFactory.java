@@ -66,6 +66,7 @@ public final class AuctionGuiItemFactory {
             String raw = config.getGuiFillerName();
             meta.displayName(deserialize(raw == null ? " " : raw));
             stack.setItemMeta(meta);
+            AuctionGuiItemKeys.markGuiItem(stack);
         }
         return stack;
     }
@@ -149,6 +150,89 @@ public final class AuctionGuiItemFactory {
                 ));
     }
 
+    public ItemStack mainButtonSell() {
+        return labelled(Material.ANVIL,
+                messages.component("auction.gui.button-sell"),
+                List.of(
+                        messages.component("auction.gui.sell-button-lore-1"),
+                        messages.component("auction.gui.sell-button-lore-2")
+                ));
+    }
+
+    public ItemStack sellSetPriceButton() {
+        return labelled(Material.LIME_STAINED_GLASS_PANE,
+                messages.component("auction.gui.sell-set-price"),
+                List.of(messages.component("auction.gui.sell-set-price-lore")));
+    }
+
+    public ItemStack sellAbortButton() {
+        return labelled(Material.RED_STAINED_GLASS_PANE,
+                messages.component("auction.gui.sell-cancel"),
+                List.of());
+    }
+
+    public ItemStack sellBackButton() {
+        return labelled(Material.ARROW,
+                messages.component("auction.gui.button-back"),
+                List.of());
+    }
+
+    /**
+     * Decoy item for anvil slot 0 so the rename field accepts a custom
+     * name (the price). Not a real economy item - the click listener
+     * blocks the player from taking the result stack.
+     */
+    public ItemStack anvilPriceTemplatePaper() {
+        return labelled(Material.PAPER,
+                messages.component("auction.gui.sell-enter-price-item"),
+                List.of(messages.component("auction.gui.sell-enter-price-hint")));
+    }
+
+    public ItemStack sellConfirmPreview(ItemStack escrow, double price, AuctionConfig cfg) {
+        ItemStack display = escrow.clone();
+        ItemMeta meta = display.getItemMeta();
+        if (meta != null) {
+            List<Component> lore = new ArrayList<>(6);
+            lore.add(messages.component("auction.gui.lore-price", Map.of(
+                    "price", auction.formatPrice(price))));
+            if (cfg.getListingFee() > 0.0D) {
+                lore.add(messages.component("auction.gui.sell-confirm-fee", Map.of(
+                        "fee", auction.formatPrice(cfg.getListingFee()))));
+            } else {
+                lore.add(messages.component("auction.gui.sell-confirm-no-fee"));
+            }
+            if (cfg.getSaleTaxPercent() > 0.0D) {
+                lore.add(messages.component("auction.gui.sell-confirm-tax", Map.of(
+                        "percent", stripTrailingZero(cfg.getSaleTaxPercent()))));
+            }
+            lore.add(Component.empty());
+            lore.add(messages.component("auction.gui.sell-confirm-hint"));
+            applyMeta(meta, null, lore);
+            display.setItemMeta(meta);
+            AuctionGuiItemKeys.markGuiItem(display);
+        }
+        return display;
+    }
+
+    public ItemStack sellConfirmCreateButton() {
+        return labelled(Material.LIME_STAINED_GLASS_PANE,
+                messages.component("auction.gui.sell-confirm"),
+                List.of());
+    }
+
+    public ItemStack sellConfirmCancelButton() {
+        return labelled(Material.RED_STAINED_GLASS_PANE,
+                messages.component("auction.gui.sell-cancel"),
+                List.of());
+    }
+
+    private static String stripTrailingZero(double v) {
+        if (v == (long) v) {
+            return Long.toString((long) v);
+        }
+        return Double.toString(v);
+    }
+
     public ItemStack cancelButton() {
         return labelled(Material.RED_STAINED_GLASS_PANE,
                 messages.component("auction.gui.button-cancel"),
@@ -183,6 +267,7 @@ public final class AuctionGuiItemFactory {
             }
             applyMeta(meta, null, lore);
             display.setItemMeta(meta);
+            AuctionGuiItemKeys.markGuiItem(display);
         }
         return display;
     }
@@ -204,6 +289,7 @@ public final class AuctionGuiItemFactory {
             lore.add(messages.component("auction.gui.lore-click-cancel"));
             applyMeta(meta, null, lore);
             display.setItemMeta(meta);
+            AuctionGuiItemKeys.markGuiItem(display);
         }
         return display;
     }
@@ -228,6 +314,7 @@ public final class AuctionGuiItemFactory {
             lore.add(messages.component("auction.gui.lore-click-collect"));
             applyMeta(meta, null, lore);
             display.setItemMeta(meta);
+            AuctionGuiItemKeys.markGuiItem(display);
         }
         return display;
     }
@@ -249,6 +336,7 @@ public final class AuctionGuiItemFactory {
                     "time", AuctionTimeFormatter.formatRemaining(listing.remainingMillis(now)))));
             applyMeta(meta, null, lore);
             display.setItemMeta(meta);
+            AuctionGuiItemKeys.markGuiItem(display);
         }
         return display;
     }
@@ -279,6 +367,7 @@ public final class AuctionGuiItemFactory {
         if (meta != null) {
             applyMeta(meta, name, lore);
             stack.setItemMeta(meta);
+            AuctionGuiItemKeys.markGuiItem(stack);
         }
         return stack;
     }

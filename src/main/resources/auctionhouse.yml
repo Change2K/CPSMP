@@ -105,6 +105,14 @@ gui:
     enabled: true
     material: GRAY_STAINED_GLASS_PANE
     name: " "
+  # V2.4: optional GUI sell flow (Amboss-Preis + Bestaetigung). Die
+  # Listing-Erstellung laeuft weiterhin ausschliesslich ueber
+  # AuctionHouseManager#createListing auf der Haupthand.
+  sell:
+    enabled: true
+    use-anvil-price-input: true
+    return-to-main-after-create: false
+    open-listings-after-create: true
 
 # Verbose logging for AH operations (listing create/cancel/expire,
 # storage init, transaction outcomes). Off by default.

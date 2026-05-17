@@ -56,6 +56,11 @@ public final class AuctionConfig {
     private final Material guiFillerMaterial;
     private final String guiFillerName;
 
+    private final boolean guiSellEnabled;
+    private final boolean guiSellUseAnvilPriceInput;
+    private final boolean guiSellReturnToMainAfterCreate;
+    private final boolean guiSellOpenListingsAfterCreate;
+
     private final boolean debug;
 
     public AuctionConfig(FileConfiguration cfg, Logger logger) {
@@ -128,6 +133,11 @@ public final class AuctionConfig {
         }
         this.guiFillerMaterial = fillerResolved;
         this.guiFillerName = cfg.getString("gui.filler.name", " ");
+
+        this.guiSellEnabled = cfg.getBoolean("gui.sell.enabled", true);
+        this.guiSellUseAnvilPriceInput = cfg.getBoolean("gui.sell.use-anvil-price-input", true);
+        this.guiSellReturnToMainAfterCreate = cfg.getBoolean("gui.sell.return-to-main-after-create", false);
+        this.guiSellOpenListingsAfterCreate = cfg.getBoolean("gui.sell.open-listings-after-create", true);
 
         this.debug = cfg.getBoolean("debug", false);
     }
@@ -230,6 +240,22 @@ public final class AuctionConfig {
 
     public String getGuiFillerName() {
         return guiFillerName;
+    }
+
+    public boolean isGuiSellEnabled() {
+        return guiSellEnabled;
+    }
+
+    public boolean isGuiSellUseAnvilPriceInput() {
+        return guiSellUseAnvilPriceInput;
+    }
+
+    public boolean isGuiSellReturnToMainAfterCreate() {
+        return guiSellReturnToMainAfterCreate;
+    }
+
+    public boolean isGuiSellOpenListingsAfterCreate() {
+        return guiSellOpenListingsAfterCreate;
     }
 
     public boolean isDebug() {

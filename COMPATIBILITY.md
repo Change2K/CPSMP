@@ -157,3 +157,12 @@ still applies to everyone else.
   drop keys, offhand swap and creative clicks at the source. Drag
   events are cancelled the moment any of their raw slots overlap
   with an Auction House inventory.
+- **V2.4 GUI sell flow** adds `AuctionGuiSession.Screen.SELL` /
+  `SELL_CONFIRM`, session escrow for the offered stack and a virtual
+  anvil step. The typed price is read only through
+  `AnvilView.getRenameText()` (never `AnvilInventory.getRenameText()`).
+  After confirmation the escrow stack is placed on the main hand and
+  listing creation still goes exclusively through
+  `AuctionHouseManager.createListing(Player, double)` with the same
+  dupe-safe SQLite path as `/ah sell`. Aborts and disconnects return
+  items via `AuctionHouseManager.safeReturnItemOrCollect`.
