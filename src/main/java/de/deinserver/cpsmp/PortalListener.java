@@ -55,6 +55,24 @@ public final class PortalListener implements Listener {
 
     public void register() {
         Bukkit.getPluginManager().registerEvents(this, plugin);
+        startScanTask();
+    }
+
+    /**
+     * Cancels and reschedules the cuboid poll using the current
+     * {@code portals.check-interval-ticks} from {@code config.yml}.
+     * Called after {@code /cpsmpadmin reload} so the interval can change
+     * without duplicating tasks.
+     */
+    public void restartScanTask() {
+        if (scanTask != null) {
+            scanTask.cancel();
+            scanTask = null;
+        }
+        startScanTask();
+    }
+
+    private void startScanTask() {
         long interval = Math.max(1L, plugin.getConfig().getLong("portals.check-interval-ticks", 5L));
         scanTask = Bukkit.getScheduler().runTaskTimer(plugin, this::scan, interval, interval);
     }

@@ -93,6 +93,9 @@ still applies to everyone else.
    - `/smpspawn`, `/rtp`, `/cpsmpadmin info`, `/cpsmpadmin reload`
      (CPSMP intentionally does **not** register `/spawn`; that name is left
      free for another plugin to claim.)
+   - After `/cpsmpadmin reload`, confirm portal scanning still runs once
+     (no duplicate polling tasks); tweak `portals.check-interval-ticks` and
+     reload again to verify the new interval applies.
    - Walk into each configured portal (`lobby_to_smp`, `smp_rtp`,
      `smp_to_danger_zone`, `smp_to_attack_zone`)
    - Verify the teleport delay countdown, cancel-on-move, cancel-on-damage,
@@ -124,10 +127,11 @@ still applies to everyone else.
   screen builders for Main / Browse / Listings / Collect / Confirm.
   No buy / sell / cancel / collect logic is duplicated in the GUI;
   every click delegates to the same `AuctionHouseManager` methods
-  the text commands use. Bidding, search and sort are still out of
-  scope and planned for later releases. The Auction House talks to
-  the existing `EconomyBridge` only and never imports a specific
-  economy plugin; see [`DEPENDENCIES.md`](DEPENDENCIES.md).
+  the text commands use. V2.5 adds browse search, configurable sort
+  modes and admin cleanup of old terminal listing rows; V2.6 adds
+  unified reload handling, config health warnings, RTP radius
+  self-correction and finer `cpsmp.ah.listings` gating. Bidding
+  remains out of scope.
 - **Auction House uses SQLite via Paper's `libraries:` loader.** No NMS
   or `org.bukkit.craftbukkit.*` is used. On Spigot / CraftBukkit the
   loader directive is ignored; the Auction House detects the missing

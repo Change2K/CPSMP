@@ -145,6 +145,11 @@ public final class RTPService {
     public CompletableFuture<Location> findSafeLocation(World world) {
         int minRadius = plugin.getConfig().getInt("rtp.min-radius", 500);
         int maxRadius = plugin.getConfig().getInt("rtp.max-radius", 5000);
+        if (minRadius > maxRadius) {
+            int t = minRadius;
+            minRadius = maxRadius;
+            maxRadius = t;
+        }
         int attempts = Math.max(1, plugin.getConfig().getInt("rtp.max-attempts", 40));
         boolean useHighest = plugin.getConfig().getBoolean("rtp.use-highest-block", true);
 

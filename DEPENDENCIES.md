@@ -163,6 +163,8 @@ Listed in `plugin.yml`:
 
 ## 7. Testing Notes
 
+For manual QA before a production deploy, see [`TESTING.md`](TESTING.md).
+
 The active economy bridge is logged at startup and shown in
 `/cpsmpadmin info` (line: `Economy: <bridge> | Provider: <name>`).
 

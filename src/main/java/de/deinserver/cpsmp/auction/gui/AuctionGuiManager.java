@@ -184,6 +184,10 @@ public final class AuctionGuiManager {
 
     public void openListings(Player player, int page) {
         if (!checkGuiOrFallback(player)) return;
+        if (!player.hasPermission(AuctionPermission.LISTINGS)) {
+            messages.sendPrefixed(player, "auction.no-permission");
+            return;
+        }
         AuctionGuiSession session = ensureSession(player);
         session.setCurrentPage(page);
         loadListingsAndOpen(player, session, page);
@@ -349,7 +353,13 @@ public final class AuctionGuiManager {
                 }
                 openSell(player);
             }
-            case MAIN_SLOT_LISTINGS -> openListings(player, 1);
+            case MAIN_SLOT_LISTINGS -> {
+                if (!player.hasPermission(AuctionPermission.LISTINGS)) {
+                    messages.sendPrefixed(player, "auction.no-permission");
+                    return;
+                }
+                openListings(player, 1);
+            }
             case MAIN_SLOT_COLLECT -> openCollect(player);
             case MAIN_SLOT_INFO -> {
                 // Info button: just print the text help inline so the
@@ -1117,7 +1127,11 @@ public final class AuctionGuiManager {
     private void navigateAfterSellCreate(Player player) {
         AuctionConfig cfg = auction.getConfig();
         if (cfg.isGuiSellOpenListingsAfterCreate()) {
-            openListings(player, 1);
+            if (player.hasPermission(AuctionPermission.LISTINGS)) {
+                openListings(player, 1);
+            } else {
+                openMain(player);
+            }
         } else if (cfg.isGuiSellReturnToMainAfterCreate()) {
             openMain(player);
         } else {

@@ -1,5 +1,4 @@
-# CPSMP V1 main configuration.
-# All player-facing strings live in messages.yml.
+# CPSMP main configuration (V2.6 baseline).# All player-facing strings live in messages.yml.
 
 settings:
   # Prefix tag used in chat messages (Adventure MiniMessage format).
@@ -44,6 +43,8 @@ rtp:
   allowed-worlds:
     - "world"
   # Radius range from world spawn (or 0,0 if not present).
+  # If min-radius is greater than max-radius, CPSMP logs a warning and
+  # swaps the values at runtime so /rtp still works.
   min-radius: 500
   max-radius: 5000
   # How many random attempts to find a safe location before giving up.
@@ -68,6 +69,7 @@ portals:
   # Prevents teleport loops between back-to-back regions.
   global-cooldown-ms: 4000
   # How often (ticks) we scan players for portal entry. 5 ticks = 4 checks / second.
+  # After /cpsmpadmin reload this interval is re-read (task is restarted once).
   check-interval-ticks: 5
 
 portal-setup:

@@ -28,9 +28,9 @@ import org.jetbrains.annotations.Nullable;
  * V2.3 adds the premium German GUI on top ({@link AuctionGuiManager} +
  * {@link AuctionGuiClickListener}). V2.4 adds the GUI sell flow with
  * Paper {@link org.bukkit.inventory.view.AnvilView}-based price entry
- * routed through {@link AuctionHouseManager#createListing}. Homes, TPA
- * and Claims are still intentionally out of scope and planned for later
- * versions.
+ * routed through {@link AuctionHouseManager#createListing}. V2.6 focuses
+ * on production hardening (reload safety, config validation, permissions).
+ * Homes, TPA and Claims are still intentionally out of scope.
  */
 public final class CPSMPPlugin extends JavaPlugin {
 
@@ -55,6 +55,7 @@ public final class CPSMPPlugin extends JavaPlugin {
     public void onEnable() {
         this.configManager = new ConfigManager(this);
         this.configManager.load();
+        ConfigHealthCheck.logWarnings(this);
 
         this.messageManager = new MessageManager(this);
         this.messageManager.reload();
@@ -132,7 +133,7 @@ public final class CPSMPPlugin extends JavaPlugin {
             ah.setTabCompleter(auctionCommand);
         }
 
-        getLogger().info("CPSMP V2.4 enabled.");
+        getLogger().info("CPSMP V2.6 enabled.");
     }
 
     @Override
@@ -146,7 +147,7 @@ public final class CPSMPPlugin extends JavaPlugin {
         // Disable the Auction House after closing GUIs so it can drain
         // pending DB work and close its SQLite handle cleanly.
         if (auctionHouseManager != null) auctionHouseManager.disable();
-        getLogger().info("CPSMP V2.4 disabled.");
+        getLogger().info("CPSMP V2.6 disabled.");
     }
 
     private void registerCommand(String name, org.bukkit.command.CommandExecutor executor) {
@@ -164,6 +165,7 @@ public final class CPSMPPlugin extends JavaPlugin {
      */
     public void reloadEverything() {
         configManager.reload();
+        ConfigHealthCheck.logWarnings(this);
         messageManager.reload();
         rtpService.reload();
         portalManager.load();
@@ -183,6 +185,9 @@ public final class CPSMPPlugin extends JavaPlugin {
         // time they run /ah instead of holding onto a stale view.
         if (auctionGuiManager != null) {
             auctionGuiManager.closeAll();
+        }
+        if (portalListener != null) {
+            portalListener.restartScanTask();
         }
     }
 

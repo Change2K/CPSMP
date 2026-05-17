@@ -7,7 +7,7 @@ main: de.deinserver.cpsmp.CPSMPPlugin
 # re-test. See COMPATIBILITY.md.
 api-version: '1.21'
 author: deinserver
-description: Premium SMP foundation plugin (V2.4).
+description: Premium SMP foundation plugin (V2.6).
 load: POSTWORLD
 
 # Paper runtime library loading. CPSMP uses SQLite for the V2.1 Auction
@@ -84,6 +84,9 @@ permissions:
     default: true
   cpsmp.ah.sell:
     description: Erlaubt /ah sell.
+    default: true
+  cpsmp.ah.listings:
+    description: Erlaubt /ah listings und die GUI-Ansicht eigener Angebote.
     default: true
   cpsmp.ah.cancel:
     description: Erlaubt /ah cancel.

@@ -36,7 +36,7 @@ import java.util.Map;
  *     <li>{@code /ah buy <id>} - buy an active listing (V2.2)</li>
  *     <li>{@code /ah admin remove <id>} - remove any listing (perm: cpsmp.ah.admin)</li>
  *     <li>{@code /ah admin info} - backend status</li>
- *     <li>{@code /ah admin reload} - reload AH config + messages</li>
+ *     <li>{@code /ah admin reload} - vollstaendiges CPSMP-Neuladen (wie /cpsmpadmin reload)</li>
  *     <li>{@code /ah admin cleanup} - delete old historic listing rows (V2.5)</li>
  * </ul>
  *
@@ -172,6 +172,10 @@ public final class AuctionCommand implements CommandExecutor, TabCompleter {
         MessageManager m = plugin.getMessageManager();
         if (!(sender instanceof Player player)) {
             m.sendPrefixed(sender, "general.player-only");
+            return true;
+        }
+        if (!player.hasPermission(AuctionPermission.LISTINGS)) {
+            m.sendPrefixed(player, "auction.no-permission");
             return true;
         }
         auction.getActiveListings(player.getUniqueId()).thenAccept(list -> {
@@ -506,9 +510,7 @@ public final class AuctionCommand implements CommandExecutor, TabCompleter {
 
     private boolean handleAdminReload(CommandSender sender) {
         MessageManager m = plugin.getMessageManager();
-        plugin.getConfigManager().reload();
-        plugin.getMessageManager().reload();
-        auction.reload();
+        plugin.reloadEverything();
         m.sendPrefixed(sender, "auction.reload-success");
         return true;
     }
@@ -572,6 +574,18 @@ public final class AuctionCommand implements CommandExecutor, TabCompleter {
             }
             if (!sender.hasPermission(AuctionPermission.BUY)) {
                 options.remove("buy");
+            }
+            if (!sender.hasPermission(AuctionPermission.SELL)) {
+                options.remove("sell");
+            }
+            if (!sender.hasPermission(AuctionPermission.LISTINGS)) {
+                options.remove("listings");
+            }
+            if (!sender.hasPermission(AuctionPermission.CANCEL)) {
+                options.remove("cancel");
+            }
+            if (!sender.hasPermission(AuctionPermission.COLLECT)) {
+                options.remove("collect");
             }
             return filter(options, args[0]);
         }
