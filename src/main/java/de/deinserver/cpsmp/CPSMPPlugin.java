@@ -24,10 +24,12 @@ import de.deinserver.cpsmp.teleport.TpaCommand;
 import de.deinserver.cpsmp.claims.AbandonClaimCommand;
 import de.deinserver.cpsmp.claims.ClaimAdminCommand;
 import de.deinserver.cpsmp.claims.ClaimCommand;
+import de.deinserver.cpsmp.claims.ClaimCommandTabCompleter;
 import de.deinserver.cpsmp.claims.ClaimInfoCommand;
 import de.deinserver.cpsmp.claims.ClaimManager;
 import de.deinserver.cpsmp.claims.ClaimsCommand;
 import de.deinserver.cpsmp.claims.ClaimsCommandsTabCompleter;
+import de.deinserver.cpsmp.claims.MergeClaimsCommand;
 import de.deinserver.cpsmp.claims.PlotCommand;
 import de.deinserver.cpsmp.claims.gui.ClaimGuiClickListener;
 import de.deinserver.cpsmp.claims.gui.ClaimGuiKeys;
@@ -171,10 +173,14 @@ public final class CPSMPPlugin extends JavaPlugin {
         this.claimGuiListener = new ClaimGuiClickListener(claimGuiManager);
         getServer().getPluginManager().registerEvents(claimGuiListener, this);
         this.claimManager.enable();
-        ClaimsCommandsTabCompleter claimsTab = new ClaimsCommandsTabCompleter();
+        ClaimCommandTabCompleter claimTab = new ClaimCommandTabCompleter(this);
         ClaimCommand claimCmd = new ClaimCommand(this);
-        registerExecutorAndTab("claim", claimCmd, claimsTab);
-        registerExecutorAndTab("cpclaim", claimCmd, claimsTab);
+        registerExecutorAndTab("claim", claimCmd, claimTab);
+        registerExecutorAndTab("cpclaim", claimCmd, claimTab);
+        MergeClaimsCommand mergeClaimsCmd = new MergeClaimsCommand(this);
+        registerExecutorAndTab("merge", mergeClaimsCmd, mergeClaimsCmd);
+        registerExecutorAndTab("cpmerge", mergeClaimsCmd, mergeClaimsCmd);
+        ClaimsCommandsTabCompleter claimsTab = new ClaimsCommandsTabCompleter();
         ClaimInfoCommand claimInfo = new ClaimInfoCommand(this);
         registerExecutorAndTab("claiminfo", claimInfo, claimsTab);
         registerExecutorAndTab("cpclaiminfo", claimInfo, claimsTab);
@@ -237,7 +243,7 @@ public final class CPSMPPlugin extends JavaPlugin {
             getLogger().warning(messageManager.raw("admin.log.command-missing-ah"));
         }
 
-        getLogger().info("CPSMP V4.0 enabled.");
+        getLogger().info("CPSMP V4.0.2 enabled.");
     }
 
     @Override

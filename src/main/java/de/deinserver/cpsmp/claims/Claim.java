@@ -9,8 +9,11 @@ import java.util.UUID;
 
 /**
  * Immutable rectangular XZ claim from floor {@link World#getMinHeight()} to ceiling.
+ *
+ * @param id                 global primary key (SQLite {@code claim_id})
+ * @param ownerClaimNumber   visible per-owner index (1..n), unique per owner
  */
-public record Claim(long id, UUID ownerUuid, String ownerName, String worldName,
+public record Claim(long id, int ownerClaimNumber, UUID ownerUuid, String ownerName, String worldName,
                     int minX, int maxX, int minZ, int maxZ,
                     long createdAt, long updatedAt) {
 

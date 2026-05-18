@@ -20,8 +20,15 @@ public final class ClaimPermission {
     public static final String CLAIM_ABANDON = "cpsmp.claim.abandon";
     public static final String BYPASS = "cpsmp.claim.bypass";
     public static final String ADMIN = "cpsmp.claim.admin";
+    /** Optional: teleport to another player's claim without full claim admin. */
+    public static final String CLAIM_TELEPORT_ADMIN = "cpsmp.claim.teleport.admin";
+    public static final String CLAIM_MERGE = "cpsmp.claim.merge";
 
     private ClaimPermission() {
+    }
+
+    public static boolean hasAdminClaimTeleport(@NotNull Player player) {
+        return player.hasPermission(ADMIN) || player.hasPermission(CLAIM_TELEPORT_ADMIN);
     }
 
     /**
@@ -35,7 +42,7 @@ public final class ClaimPermission {
             return Integer.MAX_VALUE;
         }
         int limit = Math.max(0, cfg.getDefaultClaimLimit());
-        for (int n : new int[]{1, 3, 5, 10}) {
+        for (int n : new int[]{1, 3, 4, 5, 10}) {
             if (player.hasPermission("cpsmp.claims." + n)) {
                 limit = Math.max(limit, n);
             }

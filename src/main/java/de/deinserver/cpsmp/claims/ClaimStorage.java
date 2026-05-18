@@ -4,6 +4,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 public interface ClaimStorage {
@@ -16,6 +17,8 @@ public interface ClaimStorage {
                      int minX, int maxX, int minZ, int maxZ, long now) throws ClaimStorageException;
 
     boolean deleteClaim(long claimId) throws ClaimStorageException;
+
+    @Nullable Claim findByOwnerAndNumber(UUID ownerUuid, int ownerClaimNumber) throws ClaimStorageException;
 
     int countForOwner(UUID ownerUuid) throws ClaimStorageException;
 
@@ -32,4 +35,11 @@ public interface ClaimStorage {
     List<ClaimTrustEntry> listTrust(long claimId) throws ClaimStorageException;
 
     @Nullable Claim getClaim(long id) throws ClaimStorageException;
+
+    record MergeClaimsResult(Claim keeper, Set<UUID> trustUuids) {
+    }
+
+    MergeClaimsResult mergeKeepKeeper(long keeperClaimId, List<Long> removeClaimIds,
+                                      int newMinX, int newMaxX, int newMinZ, int newMaxZ,
+                                      int newOwnerClaimNumber, long now) throws ClaimStorageException;
 }

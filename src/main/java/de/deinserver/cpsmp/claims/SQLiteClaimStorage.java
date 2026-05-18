@@ -3,6 +3,9 @@ package de.deinserver.cpsmp.claims;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -57,6 +60,9 @@ public final class SQLiteClaimStorage implements ClaimStorage {
     private static final String IDX_OWNER = """
             CREATE INDEX IF NOT EXISTS idx_claims_owner ON claims(owner_uuid)
             """;
+    private static final String IDX_OWNER_NUMBER = """
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_claims_owner_ocn ON claims(owner_uuid, owner_claim_number)
+            """;
 
     private final File dbFile;
     private final Logger logger;
@@ -87,11 +93,72 @@ public final class SQLiteClaimStorage implements ClaimStorage {
                 st.execute(IDX_WORLD);
                 st.execute(IDX_OWNER);
             }
+            migrateOwnerClaimNumberIfNeeded();
+        } catch (ClaimStorageException e) {
+            throw e;
         } catch (SQLException ex) {
             throw new ClaimStorageException("SQLite open failed: " + ex.getMessage(), ex);
         } catch (Throwable t) {
             throw new ClaimStorageException("SQLite JDBC not available: " + t.getMessage(), t);
         }
+    }
+
+    private void migrateOwnerClaimNumberIfNeeded() throws SQLException, ClaimStorageException {
+        Connection con = requireConnection();
+        if (columnExists(con, "claims", "owner_claim_number")) {
+            try (Statement st = con.createStatement()) {
+                st.execute(IDX_OWNER_NUMBER);
+            } catch (SQLException e) {
+                logger.warning("[CPSMP] Claims: Unique-Index owner_claim_number: " + e.getMessage());
+            }
+            return;
+        }
+        File backup = new File(dbFile.getParentFile(), "claims.backup-before-owner-claim-number-migration.db");
+        try {
+            Files.copy(dbFile.toPath(), backup.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            logger.info("[CPSMP] Claims: Backup vor owner_claim_number-Migration: " + backup.getName());
+        } catch (IOException e) {
+            logger.log(Level.WARNING, "[CPSMP] Claims: Konnte claims.db nicht sichern — Migration abgebrochen.", e);
+            throw new ClaimStorageException("Claims-Backup fehlgeschlagen: " + e.getMessage(), e);
+        }
+        try (Statement st = con.createStatement()) {
+            st.execute("ALTER TABLE claims ADD COLUMN owner_claim_number INTEGER");
+        }
+        String assign = """
+                UPDATE claims SET owner_claim_number = (
+                    SELECT COUNT(*) FROM claims AS c2
+                    WHERE c2.owner_uuid = claims.owner_uuid AND c2.claim_id <= claims.claim_id
+                )
+                WHERE owner_claim_number IS NULL
+                """;
+        try (Statement st = con.createStatement()) {
+            st.executeUpdate(assign);
+        }
+        try (Statement st = con.createStatement();
+             ResultSet rs = st.executeQuery("SELECT claim_id, owner_claim_number FROM claims WHERE owner_claim_number IS NULL OR owner_claim_number < 1")) {
+            if (rs.next()) {
+                logger.warning("[CPSMP] Claims: Migration owner_claim_number unvollstaendig — bitte Datenbank pruefen.");
+                throw new ClaimStorageException("owner_claim_number migration incomplete");
+            }
+        }
+        try (Statement st = con.createStatement()) {
+            st.execute(IDX_OWNER_NUMBER);
+        } catch (SQLException e) {
+            logger.log(Level.SEVERE, "[CPSMP] Claims: Unique-Index konnte nicht erstellt werden (Duplikate?).", e);
+            throw new ClaimStorageException("Unique index failed: " + e.getMessage(), e);
+        }
+    }
+
+    private static boolean columnExists(Connection con, String table, String column) throws SQLException {
+        try (Statement st = con.createStatement();
+             ResultSet rs = st.executeQuery("PRAGMA table_info(" + table + ")")) {
+            while (rs.next()) {
+                if (column.equalsIgnoreCase(rs.getString("name"))) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     @Override
@@ -110,30 +177,53 @@ public final class SQLiteClaimStorage implements ClaimStorage {
     @Override
     public long insertClaim(UUID ownerUuid, String ownerName, String world,
                             int minX, int maxX, int minZ, int maxZ, long now) throws ClaimStorageException {
-        String sql = """
-                INSERT INTO claims (owner_uuid, owner_name, world, min_x, max_x, min_z, max_z, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """;
         Connection con = requireConnection();
-        try (PreparedStatement ps = con.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
-            ps.setString(1, ownerUuid.toString());
-            ps.setString(2, ownerName);
-            ps.setString(3, world);
-            ps.setInt(4, minX);
-            ps.setInt(5, maxX);
-            ps.setInt(6, minZ);
-            ps.setInt(7, maxZ);
-            ps.setLong(8, now);
-            ps.setLong(9, now);
-            ps.executeUpdate();
-            try (ResultSet keys = ps.getGeneratedKeys()) {
-                if (keys.next()) {
-                    return keys.getLong(1);
+        String sql = """
+                INSERT INTO claims (owner_uuid, owner_name, owner_claim_number, world, min_x, max_x, min_z, max_z, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """;
+        try {
+            con.setAutoCommit(false);
+            int next;
+            try (PreparedStatement ps = con.prepareStatement(
+                    "SELECT COALESCE(MAX(owner_claim_number), 0) + 1 AS n FROM claims WHERE owner_uuid = ?")) {
+                ps.setString(1, ownerUuid.toString());
+                try (ResultSet rs = ps.executeQuery()) {
+                    next = rs.next() ? Math.max(1, rs.getInt("n")) : 1;
                 }
             }
+            try (PreparedStatement ps = con.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+                ps.setString(1, ownerUuid.toString());
+                ps.setString(2, ownerName);
+                ps.setInt(3, next);
+                ps.setString(4, world);
+                ps.setInt(5, minX);
+                ps.setInt(6, maxX);
+                ps.setInt(7, minZ);
+                ps.setInt(8, maxZ);
+                ps.setLong(9, now);
+                ps.setLong(10, now);
+                ps.executeUpdate();
+                try (ResultSet keys = ps.getGeneratedKeys()) {
+                    if (keys.next()) {
+                        con.commit();
+                        return keys.getLong(1);
+                    }
+                }
+            }
+            con.rollback();
             throw new ClaimStorageException("No generated key for claim insert");
         } catch (SQLException e) {
+            try {
+                con.rollback();
+            } catch (SQLException ignored) {
+            }
             throw new ClaimStorageException(e.getMessage(), e);
+        } finally {
+            try {
+                con.setAutoCommit(true);
+            } catch (SQLException ignored) {
+            }
         }
     }
 
@@ -144,6 +234,27 @@ public final class SQLiteClaimStorage implements ClaimStorage {
         try (PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setLong(1, claimId);
             return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            throw new ClaimStorageException(e.getMessage(), e);
+        }
+    }
+
+    @Override
+    public @Nullable Claim findByOwnerAndNumber(UUID ownerUuid, int ownerClaimNumber) throws ClaimStorageException {
+        String sql = """
+                SELECT claim_id, owner_claim_number, owner_uuid, owner_name, world, min_x, max_x, min_z, max_z, created_at, updated_at
+                FROM claims WHERE owner_uuid = ? AND owner_claim_number = ?
+                """;
+        Connection con = requireConnection();
+        try (PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setString(1, ownerUuid.toString());
+            ps.setInt(2, ownerClaimNumber);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return readClaim(rs);
+                }
+                return null;
+            }
         } catch (SQLException e) {
             throw new ClaimStorageException(e.getMessage(), e);
         }
@@ -169,8 +280,8 @@ public final class SQLiteClaimStorage implements ClaimStorage {
     @Override
     public List<Claim> listForOwner(UUID ownerUuid) throws ClaimStorageException {
         String sql = """
-                SELECT claim_id, owner_uuid, owner_name, world, min_x, max_x, min_z, max_z, created_at, updated_at
-                FROM claims WHERE owner_uuid = ? ORDER BY claim_id
+                SELECT claim_id, owner_claim_number, owner_uuid, owner_name, world, min_x, max_x, min_z, max_z, created_at, updated_at
+                FROM claims WHERE owner_uuid = ? ORDER BY owner_claim_number, claim_id
                 """;
         Connection con = requireConnection();
         try (PreparedStatement ps = con.prepareStatement(sql)) {
@@ -190,7 +301,7 @@ public final class SQLiteClaimStorage implements ClaimStorage {
     @Override
     public List<Claim> loadAllClaims() throws ClaimStorageException {
         String sql = """
-                SELECT claim_id, owner_uuid, owner_name, world, min_x, max_x, min_z, max_z, created_at, updated_at
+                SELECT claim_id, owner_claim_number, owner_uuid, owner_name, world, min_x, max_x, min_z, max_z, created_at, updated_at
                 FROM claims
                 """;
         Connection con = requireConnection();
@@ -284,7 +395,7 @@ public final class SQLiteClaimStorage implements ClaimStorage {
     @Override
     public @Nullable Claim getClaim(long id) throws ClaimStorageException {
         String sql = """
-                SELECT claim_id, owner_uuid, owner_name, world, min_x, max_x, min_z, max_z, created_at, updated_at
+                SELECT claim_id, owner_claim_number, owner_uuid, owner_name, world, min_x, max_x, min_z, max_z, created_at, updated_at
                 FROM claims WHERE claim_id = ?
                 """;
         Connection con = requireConnection();
@@ -301,6 +412,86 @@ public final class SQLiteClaimStorage implements ClaimStorage {
         }
     }
 
+    @Override
+    public MergeClaimsResult mergeKeepKeeper(long keeperClaimId, List<Long> removeClaimIds,
+                                             int newMinX, int newMaxX, int newMinZ, int newMaxZ,
+                                             int newOwnerClaimNumber, long now) throws ClaimStorageException {
+        Connection con = requireConnection();
+        if (removeClaimIds == null || removeClaimIds.isEmpty()) {
+            throw new ClaimStorageException("merge: empty remove list");
+        }
+        for (Long id : removeClaimIds) {
+            if (id != null && id == keeperClaimId) {
+                throw new ClaimStorageException("merge: remove list contains keeper");
+            }
+        }
+        try {
+            con.setAutoCommit(false);
+            for (Long rid : removeClaimIds) {
+                if (rid == null) {
+                    continue;
+                }
+                String copyTrust = """
+                        INSERT OR IGNORE INTO claim_trust (claim_id, trusted_uuid, trusted_name, created_at)
+                        SELECT ?, trusted_uuid, trusted_name, created_at FROM claim_trust WHERE claim_id = ?
+                        """;
+                try (PreparedStatement ps = con.prepareStatement(copyTrust)) {
+                    ps.setLong(1, keeperClaimId);
+                    ps.setLong(2, rid);
+                    ps.executeUpdate();
+                }
+            }
+            String upd = """
+                    UPDATE claims SET min_x=?, max_x=?, min_z=?, max_z=?, owner_claim_number=?, updated_at=?
+                    WHERE claim_id=?
+                    """;
+            try (PreparedStatement ps = con.prepareStatement(upd)) {
+                ps.setInt(1, newMinX);
+                ps.setInt(2, newMaxX);
+                ps.setInt(3, newMinZ);
+                ps.setInt(4, newMaxZ);
+                ps.setInt(5, newOwnerClaimNumber);
+                ps.setLong(6, now);
+                ps.setLong(7, keeperClaimId);
+                if (ps.executeUpdate() != 1) {
+                    con.rollback();
+                    throw new ClaimStorageException("merge: keeper update failed");
+                }
+            }
+            try (PreparedStatement ps = con.prepareStatement("DELETE FROM claims WHERE claim_id = ?")) {
+                for (Long rid : removeClaimIds) {
+                    if (rid == null) {
+                        continue;
+                    }
+                    ps.setLong(1, rid);
+                    ps.addBatch();
+                }
+                ps.executeBatch();
+            }
+            con.commit();
+            Claim k = getClaim(keeperClaimId);
+            if (k == null) {
+                throw new ClaimStorageException("merge: keeper missing after commit");
+            }
+            Set<UUID> tu = new LinkedHashSet<>();
+            for (ClaimTrustEntry e : listTrust(keeperClaimId)) {
+                tu.add(e.trustedUuid());
+            }
+            return new MergeClaimsResult(k, tu);
+        } catch (SQLException e) {
+            try {
+                con.rollback();
+            } catch (SQLException ignored) {
+            }
+            throw new ClaimStorageException(e.getMessage(), e);
+        } finally {
+            try {
+                con.setAutoCommit(true);
+            } catch (SQLException ignored) {
+            }
+        }
+    }
+
     private Connection requireConnection() throws ClaimStorageException {
         if (connection == null) {
             throw new ClaimStorageException("SQLite not open");
@@ -309,8 +500,13 @@ public final class SQLiteClaimStorage implements ClaimStorage {
     }
 
     private static Claim readClaim(ResultSet rs) throws SQLException {
+        int ocn = rs.getInt("owner_claim_number");
+        if (rs.wasNull() || ocn < 1) {
+            ocn = 1;
+        }
         return new Claim(
                 rs.getLong("claim_id"),
+                ocn,
                 UUID.fromString(rs.getString("owner_uuid")),
                 rs.getString("owner_name"),
                 rs.getString("world"),

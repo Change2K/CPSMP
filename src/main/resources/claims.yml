@@ -1,4 +1,4 @@
-# CPSMP V4.0 Claims / base protection (German messages in messages.yml).
+# CPSMP V4.0.2 Claims / base protection (German messages in messages.yml).
 
 claims:
   enabled: true
@@ -23,7 +23,13 @@ claims:
     prevent-overlap: true
 
   limits:
-    default-claim-limit: 1
+    default-claim-limit: 4
+
+  merge:
+    enabled: true
+    require-same-world: true
+    allow-diagonal-touch: false
+    require-standing-in-owned-claim: true
 
   protection:
     block-break: true
@@ -40,21 +46,45 @@ claims:
     liquid-flow: true
     buckets: true
 
-  visuals:
+  # Claim outline: default is BlockDisplay (display mode), non-blocking, no real blocks.
+  # WorldBorder mode (worldborder_if_safe) is NOT recommended: Paper/Bukkit applies a real
+  # per-player world border that can block movement. Enable only with allow-worldborder-mode: true.
+visuals:
+  enabled: true
+  mode: display
+  allow-worldborder-mode: false
+  fallback-mode: none
+  duration-seconds: 20
+  show-once-is-toggle: true
+  clear-on-world-change: true
+  refresh-interval-ticks: 20
+  show-radius-blocks: 15
+
+  display:
     enabled: true
-    # worldborder_if_safe: per-player WorldBorder (quadratisch, groessere Kantenlaenge bei Rechteck-Claims).
-    # Partikel nur als Fallback oder bei mode: particles.
-    mode: worldborder_if_safe
-    fallback-mode: particles
-    duration-seconds: 20
-    show-once-is-toggle: true
-    clear-on-world-change: true
-    refresh-interval-ticks: 20
-    particles:
-      enabled-as-fallback: true
-      border-particle: END_ROD
-      interval-ticks: 20
-      max-visible-particles-per-tick: 80
+    material: LIGHT_BLUE_STAINED_GLASS
+    corner-material: GOLD_BLOCK
+    y-offsets:
+      - 0.1
+      - 1.1
+    line-step-blocks: 2
+    max-display-entities-per-player: 300
+    scale: 0.15
+
+  particles:
+    enabled: false
+    enabled-as-fallback: false
+    static: true
+    particle: END_ROD
+    border-particle: END_ROD
+    color: "#f6d365"
+    secondary-color: "#fda085"
+    y-offsets:
+      - 0.2
+      - 1.2
+    line-step-blocks: 1
+    interval-ticks: 20
+    max-visible-particles-per-tick: 80
 
   # When false, /plot is rejected in-game; use /cpplot show or /claim show instead (PlotSquared-safe).
   plot-alias:

@@ -7,7 +7,7 @@ main: de.deinserver.cpsmp.CPSMPPlugin
 # re-test. See COMPATIBILITY.md.
 api-version: '1.21'
 author: deinserver
-description: Premium SMP foundation plugin (V4.0).
+description: Premium SMP foundation plugin (V4.0.2).
 load: POSTWORLD
 
 # Paper runtime library loading. CPSMP uses SQLite for the Auction House,
@@ -114,11 +114,19 @@ commands:
     usage: /cpback
     permission: cpsmp.back
   claim:
-    description: Claim erstellen oder Grenze anzeigen (/claim show).
-    usage: "/claim | /claim show | /claim show toggle"
+    description: Claim erstellen, Grenze anzeigen, mergen oder Admin-TP (/claim <Spieler> <Claim>).
+    usage: "/claim | /claim show | /claim merge all | /claim <Spieler> <Claim>"
   cpclaim:
     description: CPSMP-Alias fuer /claim.
-    usage: "/cpclaim | /cpclaim show | /cpclaim show toggle"
+    usage: "/cpclaim | /cpclaim show | /cpclaim merge all | /cpclaim <Spieler> <Claim>"
+  merge:
+    description: Angrenzende eigene Claims zusammenfuehren.
+    usage: /merge all
+    permission: cpsmp.claim.merge
+  cpmerge:
+    description: CPSMP-Alias fuer /merge.
+    usage: /cpmerge all
+    permission: cpsmp.claim.merge
   plot:
     description: Claim-Grenze anzeigen (Plot-Alias, optional deaktivierbar).
     usage: "/plot show | /plot show toggle"
@@ -183,7 +191,7 @@ commands:
     permission: cpsmp.claim.abandon
   claimadmin:
     description: CPSMP Claim-Administration.
-    usage: /claimadmin <info|delete|reload>
+    usage: /claimadmin <info <Spieler>|delete <Spieler> <Claim>|deleteglobal <id>|reload>
     permission: cpsmp.claim.admin
   ah:
     description: Auktionshaus - Items verkaufen, eigene Angebote verwalten und Abholungen einsammeln.
@@ -271,6 +279,13 @@ permissions:
     default: true
     children:
       cpsmp.claim.show: true
+      cpsmp.claim.merge: true
+  cpsmp.claim.teleport.admin:
+    description: Erlaubt /claim <Spieler> <Claim> (Teleport zum Claim eines Spielers).
+    default: op
+  cpsmp.claim.merge:
+    description: Erlaubt /merge all, /claim merge all und den Merge-Button in der Claims-GUI.
+    default: true
   cpsmp.claim.show:
     description: Erlaubt /claim show, /plot show (Claim-Grenze).
     default: true
@@ -301,6 +316,9 @@ permissions:
   cpsmp.claims.3:
     description: Mindestens 3 Claims.
     default: false
+  cpsmp.claims.4:
+    description: Mindestens 4 Claims (Standard fuer Spieler ohne hoehere claims.*).
+    default: true
   cpsmp.claims.5:
     description: Mindestens 5 Claims.
     default: false
@@ -349,6 +367,7 @@ permissions:
       cpsmp.ah.admin: true
       cpsmp.claim.admin: true
       cpsmp.claim.bypass: true
+      cpsmp.claim.teleport.admin: true
   cpsmp.reload:
     description: Erlaubt das Neuladen der Konfiguration.
     default: op

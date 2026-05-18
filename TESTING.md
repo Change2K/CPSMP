@@ -1,8 +1,8 @@
-# CPSMP manual test checklist (V3.0+ / V4.0)
+# CPSMP manual test checklist (V3.0+ / V4.0 / V4.0.2)
 
 Use this list before promoting a build to production. Player-facing strings are German (`messages.yml`); this document is English for operators.
 
-V3.0 adds **Homes**, **TPA**, optional **`/back`**, and `teleports.yml` (plus `teleports.db` when Homes or `/back` are enabled). V3.1 hardens those paths. **V4.0** adds **Claims** / base protection (`claims.yml`, `claims.db` SQLite). `/spawn` remains **unregistered** by CPSMP.
+V3.0 adds **Homes**, **TPA**, optional **`/back`**, and `teleports.yml` (plus `teleports.db` when Homes or `/back` are enabled). V3.1 hardens those paths. **V4.0** adds **Claims** / base protection (`claims.yml`, `claims.db` SQLite). **V4.0.2** polishes static claim outlines, `/claim <player> <Claim>` admin teleport, **merge**, default limits (4 claims / 3 homes), and a merge button in the claims GUI. `/spawn` remains **unregistered** by CPSMP.
 
 ## Local server setup
 
@@ -26,7 +26,7 @@ V3.0 adds **Homes**, **TPA**, optional **`/back`**, and `teleports.yml` (plus `t
 - `/rtp` — random teleport (`cpsmp.rtp`).
 - `/cpsmpadmin` — admin tools (`cpsmp.admin`; `reload` also needs `cpsmp.reload`).
 - `/ah` — Auction House hub / GUI (`cpsmp.ah` + sub-permissions).
-- **V4.0**: `/claim`, `/claiminfo`, `/claims`, `/plots`, `/trust`, `/untrust`, `/trustlist`, `/abandonclaim`, `/claimadmin`, **`/plot`**, **`/cpplot`** (+ `cp*` aliases). Permissions: `cpsmp.claim`, `cpsmp.claim.show`, `cpsmp.claims.*`, `cpsmp.claim.bypass`, `cpsmp.claim.admin`.
+- **V4.0+**: `/claim`, `/claiminfo`, `/claims`, `/plots`, `/trust`, `/untrust`, `/trustlist`, `/abandonclaim`, `/claimadmin`, **`/merge all`**, **`/cpmerge all`**, **`/claim merge all`**, **`/plot`**, **`/cpplot`** (+ `cp*` aliases). Permissions: `cpsmp.claim`, `cpsmp.claim.show`, `cpsmp.claim.merge`, `cpsmp.claim.teleport.admin`, `cpsmp.claims.*`, `cpsmp.claim.bypass`, `cpsmp.claim.admin`.
 
 Confirm `/spawn` is **not** registered by CPSMP (by design).
 
@@ -36,7 +36,7 @@ Confirm `/spawn` is **not** registered by CPSMP (by design).
 - **`/home` / `/cphome`**: delayed teleport; cancel on move/damage/combat when configured; unloaded home world → `general.world-missing`.
 - **`/homes` / `/cphomes`**: GUI when `homes.gui-enabled` and `cpsmp.home.gui`; otherwise chat list (`home.list-*`).
 - **`/delhome` / `/cpdelhome`**: delete a home.
-- **Limits**: `cpsmp.homes.*` and `homes.default-limit` (highest permission wins).
+- **Limits**: bundled default **`homes.default-limit: 3`**; `cpsmp.homes.*` (incl. `cpsmp.homes.3`) and OP / `cpsmp.homes.unlimited` — highest permission wins with the configured default floor.
 - **Cooldowns**: home teleport, sethome, TPA request; OP + `cpsmp.home.bypasscooldown` / `cpsmp.tpa.bypasscooldown` bypass.
 - **TPA**: `/tpa`, `/cptpa`, `/tpaccept`, `/tpdeny`, optional `/tpahere` / `/cptpahere`; expiry; one pending incoming per target.
 - **World rules**: `teleports.yml` allow/block lists + optional CPSMP zone world integration.
@@ -58,22 +58,28 @@ Confirm `/spawn` is **not** registered by CPSMP (by design).
 ## Claims / base protection (V4.0)
 
 - **World rules**: SMP (`smp`) allowed by default; `danger_zone` and `attack_zone` blocked in bundled `claims.yml` — adjust to your real world names.
-- **`/claim` / `/cpclaim`**: creates a centered claim; overlap → `claim.overlap`; wrong world → `claim.world-disabled`; at limit → `claim.limit-reached`. OP / `cpsmp.claims.unlimited` bypass count limits.
-- **`/claiminfo`**: in-claim details + optional particle border; standing outside → `claim.not-in-claim`.
-- **`/claims` / `/cpclaims` / `/plots` / `/cpplots`**: GUI overview of your claims (`cpsmp.claim.list`); empty state when none; left-click toggles per-claim border in-world (same world), right-click details, shift-right opens delete confirmation; delete re-checks ownership.
+- **`/claim` / `/cpclaim`**: creates a centered claim; overlap → `claim.overlap`; wrong world → `claim.world-disabled`; at limit → `claim.limit-reached`. Default bundle: **4** claims for normal players (`claims.limits.default-claim-limit` + `cpsmp.claims.4` default true). OP / `cpsmp.claims.unlimited` bypass count limits.
+- **Admin teleport**: `/claim <Spieler> <Claim>` (visible number) with `cpsmp.claim.admin` **or** `cpsmp.claim.teleport.admin` — safe center teleport via chunk load + surface scan; `claim.admin-teleport-*` messages. Non-admins get `general.no-permission`.
+- **Merge**: `/merge all` or `/claim merge all` (permission `cpsmp.claim.merge`): stand inside **your** claim; merges the **connected component** of your claims in that world (edge/overlap; diagonal only if `claims.merge.allow-diagonal-touch`). Fails on foreign overlap, oversize vs `max-size-*`, or single-claim cluster (`claim.merge-not-enough`). Trust is unioned; lowest visible claim number kept; SQLite transaction rolls back on error.
+- **`/claims` GUI**: slot **49** — **Claims zusammenfuehren** runs the same merge logic; refreshes the list on success.
+- **`/claiminfo`**: in-claim details show **per-player claim number** (`#1`, `#2`, …) + optional particle outline; standing outside → `claim.not-in-claim`.
+- **`/claims` / `/cpclaims` / `/plots` / `/cpplots`**: GUI shows **Claim #1, #2, …** per owner (not global DB IDs); empty state when none; left-click toggles per-claim **border visualization** in-world (same world; default **`claims.visuals.mode: display`** uses **BlockDisplay**; **`particles`** uses periodic particles), right-click details, shift-right opens delete confirmation; delete re-checks ownership.
 - **Trust**: stand in **own** claim; `/trust <online player>` / `/untrust`; `/trustlist` (requires same permission node as trust).
 - **`/abandonclaim`**: two-step within 10s; moving to another claim resets confirmation.
 - **Protection** (non-trusted visitors): break/place, configured containers/doors/redstone, living entities, hanging entities, vehicles (when enabled), explosions (blocks removed from explosion list inside claims), fire spread / burn across claim edge, fluid flow into claim from outside, bucket use.
 - **Bypass**: `cpsmp.claim.bypass` or OP — subtle actionbar `claim.bypass-actionbar` (throttled).
-- **Admin**: `/claimadmin info <player>`, `/claimadmin delete <id>`, `/claimadmin reload` (`cpsmp.claim.admin`). `/cpsmpadmin info` includes a Claims line.
+- **Admin**: `/claimadmin info <player>`, `/claimadmin delete <player> <Claim>` (visible per-player claim number), `/claimadmin deleteglobal <internalId>` (emergency), `/claimadmin reload` (`cpsmp.claim.admin`). `/cpsmpadmin info` includes a Claims line.
 - **Reload**: `/cpsmpadmin reload` reloads `claims.yml` and refills the claim cache. `/claimadmin reload` reloads only `claims.yml` + claim cache. Turning claims **off** in `claims.yml` unregisters protection listeners (SQLite may stay open). Turning claims **on** again via reload opens SQLite and registers listeners without a full server restart when JDBC is available.
 - **Persistence**: `claims.db` survives restarts; verify after reboot that `/claims` still lists rows.
-- **`/plot show`** / **`/cpplot show`** / **`/claim show`** (and `show toggle`, treated the same): **toggle** your personal outline — first activation while **standing in a claim** shows the border; activate again to **hide immediately**. While **not** in a claim, first use → `claim.show-not-in-claim`. With **`claims.visuals.enabled: false`**, the command clears any leftover per-player WorldBorder/particles and sends `claim.show-disabled`. Requires `cpsmp.claim.info` **or** `cpsmp.claim.show`.
-- **`claims.visuals.mode`**: default **`worldborder_if_safe`** uses Paper/Bukkit `createWorldBorder()` + `Player#setWorldBorder` (approximate **square** using the larger of width/depth for rectangular claims); **`particles`** block is the fallback path with **`END_ROD`** (or config) at low density (`max-visible-particles-per-tick`). Does **not** change the world’s global border.
-- **Logout / world change / plugin reload**: personal claim visuals are cleared (no duplicate tasks).
+- **`/plot show`** / **`/cpplot show`** / **`/claim show`** (and `show toggle`, treated the same): **toggle** a **visual-only** outline. Default **`claims.visuals.mode: display`**: **BlockDisplay** markers on the rectangle (`claims.visuals.display.*`: materials, `y-offsets` from feet block Y, `line-step-blocks`, `scale`, entity cap). No real blocks, no global world border, no movement block. Outline is **hidden from other players** (`hideEntity`); joining players re-hide all outline entities. While **standing in a claim**, first use **locks** that claim until toggle off, **world change**, **logout**, **reload**, or **2D distance** beyond `claims.visuals.show-radius-blocks` outside the rectangle (`claim.show-too-far`, `claim.show-disabled`). **`/plot show` / `/claim show`** also turns off a **GUI-pinned** outline. Second toggle **hides immediately**. Walk through the border — movement must stay free. Set client **particles to minimal** — border should **stay visible** in **display** mode. While **not** in a claim (and no GUI outline to turn off), first use → `claim.show-not-in-claim`. With **`claims.visuals.enabled: false`**, clears entities/tasks and sends `claim.show-disabled`. Requires `cpsmp.claim.info` **or** `cpsmp.claim.show`.
+- **`claims.visuals.particles`**: primary mode when `mode: particles`, or **fallback** when display spawn fails (`enabled-as-fallback`; optional `claim.show-display-unavailable`). Prefer `static: true`, `count=1`, zero offset/speed. **`allow-worldborder-mode`** + `mode: worldborder_if_safe` is **opt-in** (can affect movement; not recommended).
+- **Logout / world change / plugin reload**: personal claim visuals and BlockDisplays are removed (no leaked entities / duplicate tasks).
 - **`claims.plot-alias.enabled`**: when `false`, **`/plot`** is rejected with `claim.plot-alias-disabled` — use **`/cpplot show`** or **`/claim show`** (safe when another plugin owns `/plot`, e.g. PlotSquared).
 - **COMMAND_CONFLICT**: If `/plot` is owned by another plugin, CPSMP’s executor may not run — verify **`/cpplot show`** and **`/claim show`** still work; watch console for `admin.log.command-conflict` where applicable.
-- **Messages migration**: first start on an old `messages.yml` without `meta.gui-style-version: 2` copies **`messages.backup-before-v4-visual-update.yml`** and patches known GUI/title keys; console logs a German warning. **`/cpsmpadmin refreshmessages gui`** forces the same key set from the JAR default with a timestamped backup.
+- **Messages migration**: first start on an old `messages.yml` without `meta.gui-style-version: 4` copies **`messages.backup-before-v4-visual-update.yml`** (same filename as prior migrations) and patches known GUI/title keys; console logs a German warning. **`/cpsmpadmin refreshmessages gui`** forces the same key set from the JAR default with a timestamped backup.
+- **Per-player claim numbers**: after **`claims.backup-before-owner-claim-number-migration.db`**, existing rows get `owner_claim_number` (1..n per owner). `/claims` GUI and chat list use **#1, #2**, not global SQLite IDs.
+- **Migration test**: upgrade from a pre–V4.0.1 `claims.db` without `owner_claim_number`; verify backup file exists, numbers stable across restart, `/claimadmin delete <player> <n>` targets the correct polygon.
+- **V4.0.2 spot checks**: display border persists with **minimal particles**; radius `show-radius-blocks`; `/plot show` toggle removes entities; no leftover BlockDisplays after **logout** / **reload**; `/merge all` + GUI merge with border on: safe cleanup + timed preview; delete claim with border on: clears; `/claim <player> <Claim>` admin TP; `/merge all` + GUI merge preserve trust and block foreign overlap; merged bounds persist after restart; new players get **4** claim slots and **3** home slots when creating **new** homes (existing rows over limit are not deleted).
 - **Auction GUI titles**: inventory titles use high-contrast `<bold><gold>…` strings (`auction.gui.*-title`); verify readability against the vanilla chest background.
 
 ## Inventory transfer (V3.0)

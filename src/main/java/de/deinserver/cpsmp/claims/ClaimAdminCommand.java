@@ -17,7 +17,7 @@ import java.util.Locale;
 
 public final class ClaimAdminCommand implements CommandExecutor, TabCompleter {
 
-    private static final List<String> SUB = List.of("info", "delete", "reload");
+    private static final List<String> SUB = List.of("info", "delete", "deleteglobal", "reload");
 
     private final CPSMPPlugin plugin;
 
@@ -40,6 +40,7 @@ public final class ClaimAdminCommand implements CommandExecutor, TabCompleter {
         return switch (sub) {
             case "info" -> handleInfo(sender, args);
             case "delete" -> handleDelete(sender, args);
+            case "deleteglobal" -> handleDeleteGlobal(sender, args);
             case "reload" -> handleReload(sender);
             default -> {
                 plugin.getMessageManager().sendPrefixed(sender, "claim.admin-usage");
@@ -70,8 +71,42 @@ public final class ClaimAdminCommand implements CommandExecutor, TabCompleter {
     }
 
     private boolean handleDelete(CommandSender sender, String[] args) {
-        if (args.length < 2) {
+        if (args.length < 3) {
             plugin.getMessageManager().sendPrefixed(sender, "claim.admin-delete-usage");
+            return true;
+        }
+        @SuppressWarnings("deprecation")
+        OfflinePlayer target = Bukkit.getOfflinePlayer(args[1]);
+        if (target.getName() == null && !target.hasPlayedBefore()) {
+            plugin.getMessageManager().sendPrefixed(sender, "claim.admin-unknown-player",
+                    java.util.Map.of("player", args[1]));
+            return true;
+        }
+        int num;
+        try {
+            num = Integer.parseInt(args[2]);
+        } catch (NumberFormatException e) {
+            plugin.getMessageManager().sendPrefixed(sender, "claim.admin-delete-bad-number",
+                    java.util.Map.of("n", args[2]));
+            return true;
+        }
+        if (num < 1) {
+            plugin.getMessageManager().sendPrefixed(sender, "claim.admin-delete-bad-number",
+                    java.util.Map.of("n", args[2]));
+            return true;
+        }
+        ClaimManager claims = plugin.getClaimManager();
+        if (claims == null) {
+            plugin.getMessageManager().sendPrefixed(sender, "claim.disabled");
+            return true;
+        }
+        claims.adminDeleteByOwnerNumber(sender, target, num);
+        return true;
+    }
+
+    private boolean handleDeleteGlobal(CommandSender sender, String[] args) {
+        if (args.length < 2) {
+            plugin.getMessageManager().sendPrefixed(sender, "claim.admin-deleteglobal-usage");
             return true;
         }
         long id;
@@ -87,7 +122,7 @@ public final class ClaimAdminCommand implements CommandExecutor, TabCompleter {
             plugin.getMessageManager().sendPrefixed(sender, "claim.disabled");
             return true;
         }
-        claims.adminDelete(sender, id);
+        claims.adminDeleteGlobal(sender, id);
         return true;
     }
 
@@ -113,7 +148,35 @@ public final class ClaimAdminCommand implements CommandExecutor, TabCompleter {
         if (args.length == 2 && args[0].equalsIgnoreCase("info")) {
             return filterOnlineNames(sender, args[1]);
         }
+        if (args.length == 2 && args[0].equalsIgnoreCase("delete")) {
+            return filterOnlineNames(sender, args[1]);
+        }
+        if (args.length == 3 && args[0].equalsIgnoreCase("delete")) {
+            return filterOwnerClaimNumbers(args[1], args[2]);
+        }
         return List.of();
+    }
+
+    private List<String> filterOwnerClaimNumbers(String playerArg, String numberPrefix) {
+        @SuppressWarnings("deprecation")
+        OfflinePlayer target = Bukkit.getOfflinePlayer(playerArg);
+        if (!target.hasPlayedBefore() && target.getName() == null) {
+            return List.of();
+        }
+        ClaimManager cm = plugin.getClaimManager();
+        if (cm == null || !cm.getConfig().isEnabled()) {
+            return List.of();
+        }
+        List<Claim> list = cm.getCache().listForOwner(target.getUniqueId());
+        String p = numberPrefix.toLowerCase(Locale.ROOT);
+        List<String> out = new ArrayList<>();
+        for (Claim c : list) {
+            String s = Integer.toString(c.ownerClaimNumber());
+            if (s.startsWith(p)) {
+                out.add(s);
+            }
+        }
+        return out;
     }
 
     private static List<String> filter(List<String> opts, String prefix) {

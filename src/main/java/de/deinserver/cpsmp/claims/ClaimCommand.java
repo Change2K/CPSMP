@@ -1,6 +1,8 @@
 package de.deinserver.cpsmp.claims;
 
 import de.deinserver.cpsmp.CPSMPPlugin;
+import org.bukkit.Bukkit;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -28,6 +30,37 @@ public final class ClaimCommand implements CommandExecutor {
                 return true;
             }
             ClaimShowExecutor.run(player, plugin, command.getName(), args);
+            return true;
+        }
+        if (args.length >= 2 && "merge".equalsIgnoreCase(args[0]) && "all".equalsIgnoreCase(args[1])) {
+            ClaimManager cm = plugin.getClaimManager();
+            if (cm == null) {
+                plugin.getMessageManager().sendPrefixed(player, "claim.storage-error");
+                return true;
+            }
+            cm.tryMergeAdjacentOwnedClaims(player, null);
+            return true;
+        }
+        if (args.length == 2) {
+            int claimNum;
+            try {
+                claimNum = Integer.parseInt(args[1]);
+            } catch (NumberFormatException e) {
+                plugin.getMessageManager().sendPrefixed(player, "claim.admin-teleport-usage");
+                return true;
+            }
+            if (!ClaimPermission.hasAdminClaimTeleport(player)) {
+                plugin.getMessageManager().sendPrefixed(player, "general.no-permission");
+                return true;
+            }
+            ClaimManager claims = plugin.getClaimManager();
+            if (claims == null) {
+                plugin.getMessageManager().sendPrefixed(player, "claim.storage-error");
+                return true;
+            }
+            @SuppressWarnings("deprecation")
+            OfflinePlayer target = Bukkit.getOfflinePlayer(args[0]);
+            claims.adminTeleportToPlayerClaim(player, target, claimNum);
             return true;
         }
         if (args.length > 0) {

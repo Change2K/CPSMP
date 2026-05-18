@@ -555,7 +555,7 @@ public final class CpsmpTeleportSubsystem {
             return Integer.MAX_VALUE;
         }
         int limit = Math.max(0, cfg.getHomesDefaultLimit());
-        for (int n : new int[]{1, 3, 5, 10}) {
+        for (int n : new int[]{1, 3, 4, 5, 10}) {
             if (player.hasPermission("cpsmp.homes." + n)) {
                 limit = Math.max(limit, n);
             }

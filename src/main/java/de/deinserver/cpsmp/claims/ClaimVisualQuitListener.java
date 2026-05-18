@@ -3,6 +3,7 @@ package de.deinserver.cpsmp.claims;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerChangedWorldEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.jetbrains.annotations.NotNull;
 
@@ -15,6 +16,11 @@ public final class ClaimVisualQuitListener implements Listener {
 
     public ClaimVisualQuitListener(@NotNull ClaimVisualService visuals) {
         this.visuals = visuals;
+    }
+
+    @EventHandler
+    public void onJoin(PlayerJoinEvent event) {
+        visuals.hideOutlineEntitiesFromJoiningPlayer(event.getPlayer());
     }
 
     @EventHandler

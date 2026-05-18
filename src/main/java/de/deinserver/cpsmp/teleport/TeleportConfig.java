@@ -55,7 +55,7 @@ public final class TeleportConfig {
             this.combatBlocksTpa = true;
             this.homesEnabled = false;
             this.homesGuiEnabled = false;
-            this.homesDefaultLimit = 1;
+            this.homesDefaultLimit = 3;
             this.homeNameMaxLength = 16;
             this.sethomeCooldownSeconds = 0;
             this.homeTeleportDelaySeconds = 3;
@@ -83,7 +83,7 @@ public final class TeleportConfig {
 
         this.homesEnabled = cfg.getBoolean("homes.enabled", true);
         this.homesGuiEnabled = cfg.getBoolean("homes.gui-enabled", true);
-        this.homesDefaultLimit = Math.max(0, cfg.getInt("homes.default-limit", 1));
+        this.homesDefaultLimit = Math.max(0, cfg.getInt("homes.default-limit", 3));
         this.homeNameMaxLength = Math.max(1, Math.min(cfg.getInt("homes.name-max-length", 16), 48));
         this.sethomeCooldownSeconds = Math.max(0, cfg.getInt("homes.sethome-cooldown-seconds", 0));
         this.homeTeleportDelaySeconds = Math.max(0, cfg.getInt("homes.teleport-delay-seconds", 3));

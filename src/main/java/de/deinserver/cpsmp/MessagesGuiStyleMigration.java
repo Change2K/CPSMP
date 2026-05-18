@@ -22,7 +22,7 @@ import java.util.logging.Level;
  */
 public final class MessagesGuiStyleMigration {
 
-    public static final int CURRENT_GUI_STYLE_VERSION = 2;
+    public static final int CURRENT_GUI_STYLE_VERSION = 4;
 
     /**
      * Keys merged from the JAR default when {@code meta.gui-style-version} is missing or lower than
@@ -67,7 +67,42 @@ public final class MessagesGuiStyleMigration {
             "claim.gui-deleted",
             "claim.gui-delete-not-owner",
             "claim.gui-border-wrong-world",
-            "claim.gui-claim-not-found"
+            "claim.gui-claim-not-found",
+            "claim.created",
+            "claim.info",
+            "claim.list-entry",
+            "claim.abandon-warning",
+            "claim.abandoned",
+            "claim.trustlist-header",
+            "claim.admin-usage",
+            "claim.admin-info-usage",
+            "claim.admin-delete-usage",
+            "claim.admin-deleteglobal-usage",
+            "claim.admin-delete-bad-number",
+            "claim.admin-delete-bad-id",
+            "claim.admin-info-header",
+            "claim.admin-info-entry",
+            "claim.admin-delete-success",
+            "claim.admin-delete-missing",
+            "claim.admin-deleteglobal-success",
+            "claim.show-worldborder-unavailable",
+            "claim.command-usage",
+            "claim.admin-teleport-usage",
+            "claim.admin-teleport-success",
+            "claim.admin-teleport-not-found",
+            "claim.admin-teleport-world-missing",
+            "claim.admin-teleport-unsafe",
+            "claim.merge-usage",
+            "claim.merge-disabled",
+            "claim.merge-not-in-claim",
+            "claim.merge-not-enough",
+            "claim.merge-overlap",
+            "claim.merge-too-large",
+            "claim.merge-success",
+            "claim.merge-storage-error",
+            "claim.gui-merge-name",
+            "claim.gui-merge-lore-1",
+            "claim.gui-merge-lore-2"
     );
 
     private MessagesGuiStyleMigration() {

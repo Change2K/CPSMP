@@ -53,7 +53,7 @@ public final class ClaimGuiItemFactory {
             int cx = claim.centerX();
             int cz = claim.centerZ();
             meta.displayName(messages.component("claim.gui-item-name",
-                    Map.of("id", Long.toString(claim.id()))).decoration(TextDecoration.ITALIC, NO_ITALIC));
+                    Map.of("claimNumber", Integer.toString(claim.ownerClaimNumber()))).decoration(TextDecoration.ITALIC, NO_ITALIC));
             List<Component> lore = new ArrayList<>(10);
             lore.add(messages.component("claim.gui-lore-world", Map.of("world", claim.worldName())));
             lore.add(messages.component("claim.gui-lore-position",
@@ -103,7 +103,7 @@ public final class ClaimGuiItemFactory {
             int cx = claim.centerX();
             int cz = claim.centerZ();
             meta.displayName(messages.component("claim.gui-details-info-title",
-                    Map.of("id", Long.toString(claim.id()))).decoration(TextDecoration.ITALIC, NO_ITALIC));
+                    Map.of("claimNumber", Integer.toString(claim.ownerClaimNumber()))).decoration(TextDecoration.ITALIC, NO_ITALIC));
             List<Component> lore = new ArrayList<>();
             lore.add(messages.component("claim.gui-details-owner", Map.of("owner", ownerName)));
             lore.add(messages.component("claim.gui-lore-world", Map.of("world", claim.worldName())));
@@ -172,6 +172,21 @@ public final class ClaimGuiItemFactory {
             meta.displayName(messages.component("claim.gui-delete-cancel").decoration(TextDecoration.ITALIC, NO_ITALIC));
             stack.setItemMeta(meta);
             ClaimGuiKeys.tagKind(stack, ClaimGuiKeys.Kind.DEL_CANCEL);
+        }
+        return stack;
+    }
+
+    public ItemStack btnMergeClaims() {
+        ItemStack stack = new ItemStack(Material.ANVIL);
+        ItemMeta meta = stack.getItemMeta();
+        if (meta != null) {
+            meta.displayName(messages.component("claim.gui-merge-name").decoration(TextDecoration.ITALIC, NO_ITALIC));
+            List<Component> lore = List.of(
+                    messages.component("claim.gui-merge-lore-1").decoration(TextDecoration.ITALIC, NO_ITALIC),
+                    messages.component("claim.gui-merge-lore-2").decoration(TextDecoration.ITALIC, NO_ITALIC));
+            meta.lore(lore);
+            stack.setItemMeta(meta);
+            ClaimGuiKeys.tagKind(stack, ClaimGuiKeys.Kind.BTN_MERGE_CLAIMS);
         }
         return stack;
     }

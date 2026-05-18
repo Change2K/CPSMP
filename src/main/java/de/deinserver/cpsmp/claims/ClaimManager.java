@@ -4,6 +4,8 @@ import de.deinserver.cpsmp.CPSMPPlugin;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.OfflinePlayer;
+import org.bukkit.Material;
+import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
@@ -11,6 +13,10 @@ import org.bukkit.event.HandlerList;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.File;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -209,6 +215,7 @@ public final class ClaimManager {
             plugin.getMessageManager().sendPrefixed(player, "claim.gui-delete-not-owner");
             return;
         }
+        int visibleNum = c.ownerClaimNumber();
         SQLiteClaimStorage st = storage;
         ExecutorService ex = dbExecutor;
         ex.submit(() -> {
@@ -218,7 +225,7 @@ public final class ClaimManager {
                     cache.removeClaim(claimId);
                     visuals.onClaimDeleted(claimId);
                     plugin.getMessageManager().sendPrefixed(player, "claim.gui-deleted",
-                            Map.of("id", Long.toString(claimId)));
+                            Map.of("claimNumber", Integer.toString(visibleNum)));
                     onSuccess.run();
                 });
             } catch (Exception e) {
@@ -419,11 +426,14 @@ public final class ClaimManager {
         ex.submit(() -> {
             try {
                 long id = st.insertClaim(owner, ownerName, world, minX, maxX, minZ, maxZ, now);
-                Claim cl = new Claim(id, owner, ownerName, world, minX, maxX, minZ, maxZ, now, now);
+                Claim cl = st.getClaim(id);
+                if (cl == null) {
+                    throw new IllegalStateException("inserted claim not readable");
+                }
                 Bukkit.getScheduler().runTask(plugin, () -> {
                     cache.putClaim(cl, Set.of());
                     plugin.getMessageManager().sendPrefixed(player, "claim.created",
-                            Map.of("id", Long.toString(id),
+                            Map.of("claimNumber", Integer.toString(cl.ownerClaimNumber()),
                                     "w", Integer.toString(w),
                                     "d", Integer.toString(d),
                                     "world", world));
@@ -460,7 +470,7 @@ public final class ClaimManager {
         String trusted = names.isEmpty() ? "-" : String.join(", ", names);
         plugin.getMessageManager().sendPrefixed(player, "claim.info",
                 Map.of(
-                        "id", Long.toString(at.id()),
+                        "claimNumber", Integer.toString(at.ownerClaimNumber()),
                         "owner", at.ownerName() != null ? at.ownerName() : at.ownerUuid().toString(),
                         "world", at.worldName(),
                         "w", Integer.toString(at.widthBlocks()),
@@ -492,7 +502,7 @@ public final class ClaimManager {
         for (Claim c : list) {
             plugin.getMessageManager().sendPrefixed(player, "claim.list-entry",
                     Map.of(
-                            "id", Long.toString(c.id()),
+                            "claimNumber", Integer.toString(c.ownerClaimNumber()),
                             "world", c.worldName(),
                             "cx", Integer.toString(c.centerX()),
                             "cz", Integer.toString(c.centerZ()),
@@ -607,7 +617,8 @@ public final class ClaimManager {
             plugin.getMessageManager().sendPrefixed(player, "claim.trustlist-empty");
             return;
         }
-        plugin.getMessageManager().sendPrefixed(player, "claim.trustlist-header");
+        plugin.getMessageManager().sendPrefixed(player, "claim.trustlist-header",
+                Map.of("claimNumber", Integer.toString(at.ownerClaimNumber())));
         for (UUID u : snap.stream().sorted().toList()) {
             String name = Bukkit.getOfflinePlayer(u).getName();
             plugin.getMessageManager().sendPrefixed(player, "claim.trustlist-entry",
@@ -636,12 +647,13 @@ public final class ClaimManager {
         if (pend == null || pend.claimId() != at.id() || pend.expiresAtMillis() < now) {
             abandonPending.put(player.getUniqueId(), new PendingAbandon(at.id(), now + 10_000L));
             plugin.getMessageManager().sendPrefixed(player, "claim.abandon-warning",
-                    Map.of("id", Long.toString(at.id())));
+                    Map.of("claimNumber", Integer.toString(at.ownerClaimNumber())));
             plugin.getMessageManager().sendPrefixed(player, "claim.abandon-confirm");
             return;
         }
         abandonPending.remove(player.getUniqueId());
         long cid = at.id();
+        int abandonedVisible = at.ownerClaimNumber();
         SQLiteClaimStorage st = storage;
         ExecutorService ex = dbExecutor;
         ex.submit(() -> {
@@ -651,7 +663,7 @@ public final class ClaimManager {
                     cache.removeClaim(cid);
                     visuals.onClaimDeleted(cid);
                     plugin.getMessageManager().sendPrefixed(player, "claim.abandoned",
-                            Map.of("id", Long.toString(cid)));
+                            Map.of("claimNumber", Integer.toString(abandonedVisible)));
                 });
             } catch (Exception e) {
                 Bukkit.getScheduler().runTask(plugin,
@@ -670,16 +682,21 @@ public final class ClaimManager {
             return;
         }
         List<Claim> list = cache.listForOwner(target.getUniqueId());
-        String ids = list.stream().map(c -> Long.toString(c.id())).reduce((a, b) -> a + ", " + b).orElse("-");
-        plugin.getMessageManager().sendPrefixed(viewer, "claim.admin-info",
-                Map.of(
-                        "player", target.getName() != null ? target.getName() : target.getUniqueId().toString(),
-                        "count", Integer.toString(list.size()),
-                        "ids", ids
-                ));
+        String playerLabel = target.getName() != null ? target.getName() : target.getUniqueId().toString();
+        plugin.getMessageManager().sendPrefixed(viewer, "claim.admin-info-header",
+                Map.of("player", playerLabel, "count", Integer.toString(list.size())));
+        for (Claim c : list) {
+            String size = c.widthBlocks() + "x" + c.depthBlocks();
+            plugin.getMessageManager().sendPrefixed(viewer, "claim.admin-info-entry",
+                    Map.of(
+                            "claimNumber", Integer.toString(c.ownerClaimNumber()),
+                            "world", c.worldName(),
+                            "size", size
+                    ));
+        }
     }
 
-    public void adminDelete(CommandSender viewer, long claimId) {
+    public void adminDeleteByOwnerNumber(CommandSender viewer, OfflinePlayer target, int ownerClaimNumber) {
         if (!config.isEnabled()) {
             plugin.getMessageManager().sendPrefixed(viewer, "claim.disabled");
             return;
@@ -688,6 +705,45 @@ public final class ClaimManager {
             plugin.getMessageManager().sendPrefixed(viewer, "claim.storage-error");
             return;
         }
+        Claim found = cache.byOwnerAndNumber(target.getUniqueId(), ownerClaimNumber);
+        if (found == null) {
+            plugin.getMessageManager().sendPrefixed(viewer, "claim.admin-delete-missing");
+            return;
+        }
+        long globalId = found.id();
+        SQLiteClaimStorage st = storage;
+        ExecutorService ex = dbExecutor;
+        ex.submit(() -> {
+            try {
+                boolean ok = st.deleteClaim(globalId);
+                Bukkit.getScheduler().runTask(plugin, () -> {
+                    if (ok) {
+                        cache.removeClaim(globalId);
+                        visuals.onClaimDeleted(globalId);
+                        plugin.getMessageManager().sendPrefixed(viewer, "claim.admin-delete-success",
+                                Map.of("claimNumber", Integer.toString(ownerClaimNumber)));
+                    } else {
+                        plugin.getMessageManager().sendPrefixed(viewer, "claim.admin-delete-missing");
+                    }
+                });
+            } catch (Exception e) {
+                Bukkit.getScheduler().runTask(plugin,
+                        () -> plugin.getMessageManager().sendPrefixed(viewer, "claim.storage-error"));
+            }
+        });
+    }
+
+    public void adminDeleteGlobal(CommandSender viewer, long claimId) {
+        if (!config.isEnabled()) {
+            plugin.getMessageManager().sendPrefixed(viewer, "claim.disabled");
+            return;
+        }
+        if (!isStorageReady()) {
+            plugin.getMessageManager().sendPrefixed(viewer, "claim.storage-error");
+            return;
+        }
+        Claim snap = cache.byId(claimId);
+        String vis = snap != null ? Integer.toString(snap.ownerClaimNumber()) : "?";
         SQLiteClaimStorage st = storage;
         ExecutorService ex = dbExecutor;
         ex.submit(() -> {
@@ -697,16 +753,165 @@ public final class ClaimManager {
                     if (ok) {
                         cache.removeClaim(claimId);
                         visuals.onClaimDeleted(claimId);
-                        plugin.getMessageManager().sendPrefixed(viewer, "claim.admin-delete-success",
-                                Map.of("id", Long.toString(claimId)));
+                        plugin.getMessageManager().sendPrefixed(viewer, "claim.admin-deleteglobal-success",
+                                Map.of("claimNumber", vis, "id", Long.toString(claimId)));
                     } else {
-                        plugin.getMessageManager().sendPrefixed(viewer, "claim.admin-delete-missing",
-                                Map.of("id", Long.toString(claimId)));
+                        plugin.getMessageManager().sendPrefixed(viewer, "claim.admin-delete-missing");
                     }
                 });
             } catch (Exception e) {
                 Bukkit.getScheduler().runTask(plugin,
                         () -> plugin.getMessageManager().sendPrefixed(viewer, "claim.storage-error"));
+            }
+        });
+    }
+
+    public void adminTeleportToPlayerClaim(Player admin, OfflinePlayer target, int ownerClaimNumber) {
+        if (!config.isEnabled()) {
+            plugin.getMessageManager().sendPrefixed(admin, "claim.disabled");
+            return;
+        }
+        if (!ClaimPermission.hasAdminClaimTeleport(admin)) {
+            plugin.getMessageManager().sendPrefixed(admin, "general.no-permission");
+            return;
+        }
+        if (!isStorageReady()) {
+            plugin.getMessageManager().sendPrefixed(admin, "claim.storage-error");
+            return;
+        }
+        Claim c = cache.byOwnerAndNumber(target.getUniqueId(), ownerClaimNumber);
+        if (c == null) {
+            plugin.getMessageManager().sendPrefixed(admin, "claim.admin-teleport-not-found");
+            return;
+        }
+        World world = Bukkit.getWorld(c.worldName());
+        if (world == null) {
+            plugin.getMessageManager().sendPrefixed(admin, "claim.admin-teleport-world-missing");
+            return;
+        }
+        int bx = c.centerX();
+        int bz = c.centerZ();
+        Set<Material> unsafe = ClaimLandingSupport.unsafeMaterials(plugin);
+        int chunkX = bx >> 4;
+        int chunkZ = bz >> 4;
+        plugin.getTeleportAdapter().loadChunk(world, chunkX, chunkZ).thenAccept(ch ->
+                Bukkit.getScheduler().runTask(plugin, () -> {
+                    if (!admin.isOnline()) {
+                        return;
+                    }
+                    Location loc = ClaimLandingSupport.findSafeStanding(world, bx, bz, unsafe);
+                    if (loc == null) {
+                        plugin.getMessageManager().sendPrefixed(admin, "claim.admin-teleport-unsafe");
+                        return;
+                    }
+                    String tname = target.getName() != null ? target.getName() : target.getUniqueId().toString();
+                    plugin.getTeleportService().requestTeleport(admin, loc, 0,
+                            p -> plugin.getMessageManager().sendPrefixed(p, "claim.admin-teleport-success",
+                                    Map.of("claimNumber", Integer.toString(ownerClaimNumber), "player", tname)),
+                            null);
+                }));
+    }
+
+    public void tryMergeAdjacentOwnedClaims(Player player, @Nullable Runnable onSuccess) {
+        if (!isOperational()) {
+            plugin.getMessageManager().sendPrefixed(player, "claim.storage-error");
+            return;
+        }
+        if (!player.hasPermission(ClaimPermission.CLAIM_MERGE)) {
+            plugin.getMessageManager().sendPrefixed(player, "general.no-permission");
+            return;
+        }
+        if (!config.isMergeEnabled()) {
+            plugin.getMessageManager().sendPrefixed(player, "claim.merge-disabled");
+            return;
+        }
+        Claim foot = claimAt(player.getLocation());
+        if (foot == null || !foot.ownerUuid().equals(player.getUniqueId())) {
+            plugin.getMessageManager().sendPrefixed(player, "claim.merge-not-in-claim");
+            return;
+        }
+        List<Claim> ownerInWorld = new ArrayList<>();
+        for (Claim x : cache.listForOwner(player.getUniqueId())) {
+            if (config.isMergeRequireSameWorld()
+                    && !x.worldName().equalsIgnoreCase(foot.worldName())) {
+                continue;
+            }
+            ownerInWorld.add(x);
+        }
+        boolean allowDiag = config.isMergeAllowDiagonalTouch();
+        Set<Long> visited = new HashSet<>();
+        ArrayDeque<Claim> q = new ArrayDeque<>();
+        q.add(foot);
+        visited.add(foot.id());
+        while (!q.isEmpty()) {
+            Claim cur = q.poll();
+            for (Claim o : ownerInWorld) {
+                if (visited.contains(o.id())) {
+                    continue;
+                }
+                if (ClaimAdjacency.mergeable(cur, o, allowDiag)) {
+                    visited.add(o.id());
+                    q.add(o);
+                }
+            }
+        }
+        List<Claim> cluster = ownerInWorld.stream().filter(c -> visited.contains(c.id())).toList();
+        if (cluster.size() < 2) {
+            plugin.getMessageManager().sendPrefixed(player, "claim.merge-not-enough");
+            return;
+        }
+        Claim keeper = cluster.stream()
+                .min(Comparator.comparingInt(Claim::ownerClaimNumber).thenComparingLong(Claim::id))
+                .orElseThrow();
+        List<Long> removeIds = new ArrayList<>();
+        for (Claim cl : cluster) {
+            if (cl.id() != keeper.id()) {
+                removeIds.add(cl.id());
+            }
+        }
+        int minX = cluster.stream().mapToInt(Claim::minX).min().orElseThrow();
+        int maxX = cluster.stream().mapToInt(Claim::maxX).max().orElseThrow();
+        int minZ = cluster.stream().mapToInt(Claim::minZ).min().orElseThrow();
+        int maxZ = cluster.stream().mapToInt(Claim::maxZ).max().orElseThrow();
+        int w = maxX - minX + 1;
+        int d = maxZ - minZ + 1;
+        if (w > config.getMaxSizeX() || d > config.getMaxSizeZ()) {
+            plugin.getMessageManager().sendPrefixed(player, "claim.merge-too-large");
+            return;
+        }
+        Set<Long> memberIds = new HashSet<>(visited);
+        if (cache.mergedBoundsOverlapForeign(keeper.worldName(), minX, maxX, minZ, maxZ, memberIds)) {
+            plugin.getMessageManager().sendPrefixed(player, "claim.merge-overlap");
+            return;
+        }
+        int newOcn = cluster.stream().mapToInt(Claim::ownerClaimNumber).min().orElseThrow();
+        long now = System.currentTimeMillis();
+        SQLiteClaimStorage st = storage;
+        ExecutorService ex = dbExecutor;
+        long keeperId = keeper.id();
+        ex.submit(() -> {
+            try {
+                ClaimStorage.MergeClaimsResult res = st.mergeKeepKeeper(keeperId, removeIds,
+                        minX, maxX, minZ, maxZ, newOcn, now);
+                Bukkit.getScheduler().runTask(plugin, () -> {
+                    Claim merged = res.keeper();
+                    cache.applyMergedKeeper(keeperId, merged, res.trustUuids(), removeIds);
+                    for (long rid : removeIds) {
+                        visuals.onClaimDeleted(rid);
+                    }
+                    visuals.clearPlayer(player);
+                    plugin.getMessageManager().sendPrefixed(player, "claim.merge-success");
+                    if (config.isVisualsEnabled()) {
+                        visuals.showTimedPreview(player, merged);
+                    }
+                    if (onSuccess != null) {
+                        onSuccess.run();
+                    }
+                });
+            } catch (Exception e) {
+                plugin.getLogger().warning("[CPSMP] Claim merge: " + e.getMessage());
+                Bukkit.getScheduler().runTask(plugin,
+                        () -> plugin.getMessageManager().sendPrefixed(player, "claim.merge-storage-error"));
             }
         });
     }

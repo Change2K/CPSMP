@@ -4,6 +4,7 @@ import de.deinserver.cpsmp.CPSMPPlugin;
 import de.deinserver.cpsmp.claims.Claim;
 import de.deinserver.cpsmp.claims.ClaimConfig;
 import de.deinserver.cpsmp.claims.ClaimManager;
+import de.deinserver.cpsmp.claims.ClaimPermission;
 import de.deinserver.cpsmp.claims.ClaimVisualService;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
@@ -34,6 +35,7 @@ public final class ClaimGuiManager {
     };
     private static final int BTN_PREV = 45;
     private static final int BTN_NEXT = 53;
+    private static final int BTN_MERGE = 49;
 
     private static final int DETAIL_SIZE = 27;
     private static final int DEL_SIZE = 27;
@@ -124,6 +126,9 @@ public final class ClaimGuiManager {
         }
         if (page < totalPages - 1) {
             inv.setItem(BTN_NEXT, items.nextPage());
+        }
+        if (player.hasPermission(ClaimPermission.CLAIM_MERGE) && claims.getConfig().isMergeEnabled()) {
+            inv.setItem(BTN_MERGE, items.btnMergeClaims());
         }
         player.openInventory(inv);
     }
@@ -231,6 +236,16 @@ public final class ClaimGuiManager {
             }
             session.setListPage(session.listPage() + 1);
             paintList(player, session, owned);
+            return;
+        }
+        if (kind == ClaimGuiKeys.Kind.BTN_MERGE_CLAIMS && slot == BTN_MERGE) {
+            if (click != ClickType.LEFT && click != ClickType.RIGHT) {
+                return;
+            }
+            claims.tryMergeAdjacentOwnedClaims(player, () -> {
+                List<Claim> refreshed = claims.getCache().listForOwner(player.getUniqueId());
+                paintList(player, session, refreshed);
+            });
             return;
         }
         if (kind == ClaimGuiKeys.Kind.LIST_CLAIM) {

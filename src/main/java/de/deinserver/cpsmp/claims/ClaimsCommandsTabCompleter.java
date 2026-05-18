@@ -18,8 +18,7 @@ public final class ClaimsCommandsTabCompleter implements TabCompleter {
     public @Nullable List<String> onTabComplete(@NotNull CommandSender sender, @NotNull Command command,
                                                   @NotNull String alias, @NotNull String[] args) {
         String name = command.getName().toLowerCase(Locale.ROOT);
-        boolean showCommands = name.equals("claim") || name.equals("cpclaim")
-                || name.equals("plot") || name.equals("cpplot");
+        boolean showCommands = name.equals("plot") || name.equals("cpplot");
         if (showCommands) {
             if (!(sender instanceof Player requester) || !ClaimPermission.canShowClaimBorder(requester)) {
                 return List.of();

@@ -14,7 +14,7 @@ homes:
   enabled: true
   gui-enabled: true
   integrate-cpsmp-zone-worlds: true
-  default-limit: 1
+  default-limit: 3
   name-max-length: 16
   sethome-cooldown-seconds: 0
   teleport-delay-seconds: 3
