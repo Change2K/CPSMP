@@ -36,12 +36,13 @@ import java.util.Map;
 public final class AdminCommand implements CommandExecutor, TabCompleter {
 
     private static final List<String> ROOT = List.of(
-            "setspawn", "setportal", "portal", "setzone", "reload", "info", "homes");
+            "setspawn", "setportal", "portal", "setzone", "reload", "info", "homes", "refreshmessages");
     private static final List<String> CORNERS = List.of("pos1", "pos2", "target");
     private static final List<String> PORTAL_ACTIONS = List.of(
             "enable", "disable", "reset", "info");
     private static final List<String> ZONES = List.of("danger", "attack");
     private static final List<String> HOMES_ACTIONS = List.of("info", "delete", "reload");
+    private static final List<String> REFRESH_MESSAGES_ACTIONS = List.of("gui");
 
     private final CPSMPPlugin plugin;
 
@@ -69,11 +70,31 @@ public final class AdminCommand implements CommandExecutor, TabCompleter {
             case "reload" -> handleReload(sender);
             case "info" -> handleInfo(sender);
             case "homes" -> handleHomes(sender, args);
+            case "refreshmessages" -> handleRefreshMessages(sender, args);
             default -> {
                 plugin.getMessageManager().sendPrefixed(sender, "admin.usage");
                 yield true;
             }
         };
+    }
+
+    private boolean handleRefreshMessages(CommandSender sender, String[] args) {
+        if (args.length < 2 || !"gui".equalsIgnoreCase(args[1])) {
+            plugin.getMessageManager().sendPrefixed(sender, "admin.refreshmessages-usage");
+            return true;
+        }
+        String backup = MessagesGuiStyleMigration.refreshGuiKeysForced(plugin,
+                plugin.getConfigManager().getMessagesFile());
+        if (backup == null) {
+            plugin.getMessageManager().sendPrefixed(sender, "admin.refreshmessages-gui-failed");
+            return true;
+        }
+        plugin.getConfigManager().reloadMessages();
+        plugin.getMessageManager().reload();
+        plugin.getMessageManager().sendPrefixed(sender, "admin.refreshmessages-gui-backup-created",
+                Map.of("file", backup));
+        plugin.getMessageManager().sendPrefixed(sender, "admin.refreshmessages-gui-success");
+        return true;
     }
 
     private boolean handleSetSpawn(CommandSender sender) {
@@ -466,6 +487,9 @@ public final class AdminCommand implements CommandExecutor, TabCompleter {
                 }
                 case "homes" -> {
                     return filter(HOMES_ACTIONS, args[1]);
+                }
+                case "refreshmessages" -> {
+                    return filter(REFRESH_MESSAGES_ACTIONS, args[1]);
                 }
                 default -> { /* fall through */ }
             }

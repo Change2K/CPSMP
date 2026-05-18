@@ -28,6 +28,10 @@ import de.deinserver.cpsmp.claims.ClaimInfoCommand;
 import de.deinserver.cpsmp.claims.ClaimManager;
 import de.deinserver.cpsmp.claims.ClaimsCommand;
 import de.deinserver.cpsmp.claims.ClaimsCommandsTabCompleter;
+import de.deinserver.cpsmp.claims.PlotCommand;
+import de.deinserver.cpsmp.claims.gui.ClaimGuiClickListener;
+import de.deinserver.cpsmp.claims.gui.ClaimGuiKeys;
+import de.deinserver.cpsmp.claims.gui.ClaimGuiManager;
 import de.deinserver.cpsmp.claims.TrustCommand;
 import de.deinserver.cpsmp.claims.TrustListCommand;
 import de.deinserver.cpsmp.claims.UntrustCommand;
@@ -68,6 +72,8 @@ public final class CPSMPPlugin extends JavaPlugin {
     private ZoneListener zoneListener;
     private @Nullable CpsmpTeleportSubsystem teleportSubsystem;
     private @Nullable ClaimManager claimManager;
+    private @Nullable ClaimGuiManager claimGuiManager;
+    private @Nullable ClaimGuiClickListener claimGuiListener;
     private AuctionHouseManager auctionHouseManager;
     private AuctionGuiManager auctionGuiManager;
     private AuctionGuiClickListener auctionGuiListener;
@@ -160,6 +166,10 @@ public final class CPSMPPlugin extends JavaPlugin {
         registerExecutorAndTab("cpback", backCmd, teleportTab);
 
         this.claimManager = new ClaimManager(this);
+        ClaimGuiKeys.init(this);
+        this.claimGuiManager = new ClaimGuiManager(this, claimManager);
+        this.claimGuiListener = new ClaimGuiClickListener(claimGuiManager);
+        getServer().getPluginManager().registerEvents(claimGuiListener, this);
         this.claimManager.enable();
         ClaimsCommandsTabCompleter claimsTab = new ClaimsCommandsTabCompleter();
         ClaimCommand claimCmd = new ClaimCommand(this);
@@ -171,6 +181,8 @@ public final class CPSMPPlugin extends JavaPlugin {
         ClaimsCommand claimsList = new ClaimsCommand(this);
         registerExecutorAndTab("claims", claimsList, claimsTab);
         registerExecutorAndTab("cpclaims", claimsList, claimsTab);
+        registerExecutorAndTab("plots", claimsList, claimsTab);
+        registerExecutorAndTab("cpplots", claimsList, claimsTab);
         TrustCommand trustCmd = new TrustCommand(this);
         registerExecutorAndTab("trust", trustCmd, claimsTab);
         registerExecutorAndTab("cptrust", trustCmd, claimsTab);
@@ -183,6 +195,9 @@ public final class CPSMPPlugin extends JavaPlugin {
         AbandonClaimCommand abandon = new AbandonClaimCommand(this);
         registerExecutorAndTab("abandonclaim", abandon, claimsTab);
         registerExecutorAndTab("cpabandonclaim", abandon, claimsTab);
+        PlotCommand plotCmd = new PlotCommand(this);
+        registerExecutorAndTab("plot", plotCmd, claimsTab);
+        registerExecutorAndTab("cpplot", plotCmd, claimsTab);
         ClaimAdminCommand claimAdmin = new ClaimAdminCommand(this);
         PluginCommand claimAdm = getCommand("claimadmin");
         if (claimAdm != null) {
@@ -235,6 +250,9 @@ public final class CPSMPPlugin extends JavaPlugin {
         if (teleportSubsystem != null) {
             teleportSubsystem.disable();
         }
+        if (claimGuiManager != null) {
+            claimGuiManager.closeAll();
+        }
         if (claimManager != null) {
             claimManager.disable();
         }
@@ -273,6 +291,13 @@ public final class CPSMPPlugin extends JavaPlugin {
     }
 
     /**
+     * Claims / plots overview GUI. Null only before {@link #onEnable()} completes.
+     */
+    public @Nullable ClaimGuiManager getClaimGuiManager() {
+        return claimGuiManager;
+    }
+
+    /**
      * Re-reads all configuration files and rebuilds in-memory caches. Called
      * by {@code /cpsmpadmin reload}.
      */
@@ -304,6 +329,9 @@ public final class CPSMPPlugin extends JavaPlugin {
         }
         if (teleportSubsystem != null) {
             teleportSubsystem.reload();
+        }
+        if (claimGuiManager != null) {
+            claimGuiManager.closeAll();
         }
         if (claimManager != null) {
             claimManager.reload();

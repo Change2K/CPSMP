@@ -22,6 +22,18 @@ public final class ClaimCommand implements CommandExecutor {
             plugin.getMessageManager().sendPrefixed(sender, "general.player-only");
             return true;
         }
+        if (args.length > 0 && "show".equalsIgnoreCase(args[0])) {
+            if (args.length >= 2 && !"toggle".equalsIgnoreCase(args[1])) {
+                plugin.getMessageManager().sendPrefixed(player, "claim.show-usage-claim");
+                return true;
+            }
+            ClaimShowExecutor.run(player, plugin, command.getName(), args);
+            return true;
+        }
+        if (args.length > 0) {
+            plugin.getMessageManager().sendPrefixed(player, "claim.command-usage");
+            return true;
+        }
         if (!player.hasPermission(ClaimPermission.CLAIM_ROOT)) {
             plugin.getMessageManager().sendPrefixed(player, "claim.no-permission");
             return true;

@@ -3,12 +3,12 @@ package de.deinserver.cpsmp.auction.gui;
 import de.deinserver.cpsmp.MessageManager;
 import de.deinserver.cpsmp.auction.AuctionBrowseSort;
 import de.deinserver.cpsmp.auction.AuctionCollectItem;
+import de.deinserver.cpsmp.auction.AuctionCollectReason;
 import de.deinserver.cpsmp.auction.AuctionConfig;
 import de.deinserver.cpsmp.auction.AuctionHouseManager;
 import de.deinserver.cpsmp.auction.AuctionListing;
 import de.deinserver.cpsmp.auction.AuctionTimeFormatter;
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Material;
@@ -78,27 +78,27 @@ public final class AuctionGuiItemFactory {
     public ItemStack mainButtonBrowse() {
         return labelled(Material.EMERALD,
                 messages.component("auction.gui.button-browse"),
-                List.of(line("Klicke, um den Markt zu durchstoebern.", NamedTextColor.GRAY)));
+                List.of(messages.component("auction.gui.button-browse-lore")));
     }
 
     public ItemStack mainButtonListings() {
         return labelled(Material.WRITABLE_BOOK,
                 messages.component("auction.gui.button-listings"),
-                List.of(line("Deine aktiven Angebote.", NamedTextColor.GRAY)));
+                List.of(messages.component("auction.gui.button-listings-lore")));
     }
 
     public ItemStack mainButtonCollect() {
         return labelled(Material.HOPPER,
                 messages.component("auction.gui.button-collect"),
-                List.of(line("Items, die fuer dich bereitliegen.", NamedTextColor.GRAY)));
+                List.of(messages.component("auction.gui.button-collect-lore")));
     }
 
     public ItemStack mainButtonInfo() {
         return labelled(Material.PAPER,
                 messages.component("auction.gui.button-info"),
                 List.of(
-                        line("Verkaufe Items per /ah sell <Preis>.", NamedTextColor.GRAY),
-                        line("Kaufe Items ueber den Markt.", NamedTextColor.GRAY)
+                        messages.component("auction.gui.button-info-lore-1"),
+                        messages.component("auction.gui.button-info-lore-2")
                 ));
     }
 
@@ -111,7 +111,7 @@ public final class AuctionGuiItemFactory {
     public ItemStack browseRefreshButton() {
         return labelled(Material.COMPASS,
                 messages.component("auction.gui.button-refresh"),
-                List.of());
+                List.of(messages.component("auction.gui.button-refresh-lore")));
     }
 
     public ItemStack browseSortButton(AuctionBrowseSort mode) {
@@ -119,7 +119,10 @@ public final class AuctionGuiItemFactory {
                 .serialize(messages.component(mode.messageKey()));
         return labelled(Material.REPEATER,
                 messages.component("auction.gui.button-sort"),
-                List.of(messages.component("auction.gui.current-sort", Map.of("sort", sortPlain))));
+                List.of(
+                        messages.component("auction.gui.current-sort", Map.of("sort", sortPlain)),
+                        messages.component("auction.gui.button-sort-lore")
+                ));
     }
 
     /**
@@ -140,13 +143,15 @@ public final class AuctionGuiItemFactory {
     public ItemStack previousPageButton(int targetPage) {
         return labelled(Material.SPECTRAL_ARROW,
                 messages.component("auction.gui.button-previous-page"),
-                List.of(line("Seite " + targetPage, NamedTextColor.GRAY)));
+                List.of(messages.component("auction.gui.button-page-lore",
+                        Map.of("page", Integer.toString(targetPage)))));
     }
 
     public ItemStack nextPageButton(int targetPage) {
         return labelled(Material.SPECTRAL_ARROW,
                 messages.component("auction.gui.button-next-page"),
-                List.of(line("Seite " + targetPage, NamedTextColor.GRAY)));
+                List.of(messages.component("auction.gui.button-page-lore",
+                        Map.of("page", Integer.toString(targetPage)))));
     }
 
     public ItemStack pageIndicator(int page, int totalPages) {
@@ -161,7 +166,7 @@ public final class AuctionGuiItemFactory {
     public ItemStack collectAllButton() {
         return labelled(Material.CHEST_MINECART,
                 messages.component("auction.gui.button-collect-all"),
-                List.of(line("Alle bereitliegenden Items abholen.", NamedTextColor.GRAY)));
+                List.of(messages.component("auction.gui.button-collect-all-lore")));
     }
 
     public ItemStack confirmButton(AuctionListing listing) {
@@ -171,7 +176,11 @@ public final class AuctionGuiItemFactory {
                         messages.component("auction.gui.lore-price", Map.of(
                                 "price", auction.formatPrice(listing.price()))),
                         messages.component("auction.gui.lore-seller", Map.of(
-                                "seller", listing.sellerName() == null ? "-" : listing.sellerName()))
+                                "seller", listing.sellerName() == null ? "-" : listing.sellerName())),
+                        messages.component("auction.gui.lore-expires", Map.of(
+                                "time", AuctionTimeFormatter.formatRemaining(listing.remainingMillis(System.currentTimeMillis())))),
+                        Component.empty(),
+                        messages.component("auction.gui.button-confirm-buy-lore")
                 ));
     }
 
@@ -328,12 +337,13 @@ public final class AuctionGuiItemFactory {
         ItemMeta meta = display.getItemMeta();
         if (meta != null) {
             List<Component> lore = new ArrayList<>(5);
-            lore.add(line("Grund: " + germanReason(item), NamedTextColor.GRAY));
+            lore.add(collectReasonLine(item.reason()));
             long ageMs = Math.max(0L, now - item.createdAt());
-            lore.add(line("Alter: " + AuctionTimeFormatter.formatRemaining(ageMs),
-                    NamedTextColor.GRAY));
+            lore.add(messages.component("auction.gui.collect-age-line",
+                    Map.of("time", AuctionTimeFormatter.formatRemaining(ageMs))));
             if (item.sourceListingId() != null) {
-                lore.add(line("Aus Angebot #" + item.sourceListingId(), NamedTextColor.DARK_GRAY));
+                lore.add(messages.component("auction.gui.collect-source-line",
+                        Map.of("id", Long.toString(item.sourceListingId()))));
             }
             lore.add(Component.empty());
             lore.add(messages.component("auction.gui.lore-click-collect"));
@@ -359,6 +369,8 @@ public final class AuctionGuiItemFactory {
                     "seller", listing.sellerName() == null ? "-" : listing.sellerName())));
             lore.add(messages.component("auction.gui.lore-expires", Map.of(
                     "time", AuctionTimeFormatter.formatRemaining(listing.remainingMillis(now)))));
+            lore.add(Component.empty());
+            lore.add(messages.component("auction.gui.confirm-preview-hint"));
             applyMeta(meta, null, lore);
             display.setItemMeta(meta);
             AuctionGuiItemKeys.markGuiItem(display);
@@ -376,13 +388,13 @@ public final class AuctionGuiItemFactory {
 
     // ------------------------------------------------------------ low-level
 
-    private static String germanReason(AuctionCollectItem item) {
-        return switch (item.reason()) {
-            case CANCELLED_LISTING -> "Zurueckgezogenes Angebot";
-            case EXPIRED_LISTING -> "Abgelaufenes Angebot";
-            case ADMIN_REMOVED -> "Vom Admin entfernt";
-            case PURCHASED_ITEM_INVENTORY_FULL -> "Gekauftes Item";
-            case SYSTEM_RETURN -> "System-Rueckgabe";
+    private Component collectReasonLine(AuctionCollectReason reason) {
+        return switch (reason) {
+            case CANCELLED_LISTING -> messages.component("auction.gui.collect-reason-cancelled-listing");
+            case EXPIRED_LISTING -> messages.component("auction.gui.collect-reason-expired-listing");
+            case ADMIN_REMOVED -> messages.component("auction.gui.collect-reason-admin-removed");
+            case PURCHASED_ITEM_INVENTORY_FULL -> messages.component("auction.gui.collect-reason-purchased-full");
+            case SYSTEM_RETURN -> messages.component("auction.gui.collect-reason-system-return");
         };
     }
 
@@ -410,10 +422,6 @@ public final class AuctionGuiItemFactory {
             }
             meta.lore(normalised);
         }
-    }
-
-    private static Component line(String text, NamedTextColor color) {
-        return Component.text(text, color).decoration(TextDecoration.ITALIC, NO_ITALIC);
     }
 
     private Component deserialize(String raw) {

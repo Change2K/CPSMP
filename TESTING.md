@@ -26,7 +26,7 @@ V3.0 adds **Homes**, **TPA**, optional **`/back`**, and `teleports.yml` (plus `t
 - `/rtp` — random teleport (`cpsmp.rtp`).
 - `/cpsmpadmin` — admin tools (`cpsmp.admin`; `reload` also needs `cpsmp.reload`).
 - `/ah` — Auction House hub / GUI (`cpsmp.ah` + sub-permissions).
-- **V4.0**: `/claim`, `/claiminfo`, `/claims`, `/trust`, `/untrust`, `/trustlist`, `/abandonclaim`, `/claimadmin` (+ `cp*` aliases). Permissions: `cpsmp.claim`, `cpsmp.claims.*`, `cpsmp.claim.bypass`, `cpsmp.claim.admin`.
+- **V4.0**: `/claim`, `/claiminfo`, `/claims`, `/plots`, `/trust`, `/untrust`, `/trustlist`, `/abandonclaim`, `/claimadmin`, **`/plot`**, **`/cpplot`** (+ `cp*` aliases). Permissions: `cpsmp.claim`, `cpsmp.claim.show`, `cpsmp.claims.*`, `cpsmp.claim.bypass`, `cpsmp.claim.admin`.
 
 Confirm `/spawn` is **not** registered by CPSMP (by design).
 
@@ -60,7 +60,7 @@ Confirm `/spawn` is **not** registered by CPSMP (by design).
 - **World rules**: SMP (`smp`) allowed by default; `danger_zone` and `attack_zone` blocked in bundled `claims.yml` — adjust to your real world names.
 - **`/claim` / `/cpclaim`**: creates a centered claim; overlap → `claim.overlap`; wrong world → `claim.world-disabled`; at limit → `claim.limit-reached`. OP / `cpsmp.claims.unlimited` bypass count limits.
 - **`/claiminfo`**: in-claim details + optional particle border; standing outside → `claim.not-in-claim`.
-- **`/claims`**: chat list of own claims with id, world, center, size.
+- **`/claims` / `/cpclaims` / `/plots` / `/cpplots`**: GUI overview of your claims (`cpsmp.claim.list`); empty state when none; left-click toggles per-claim border in-world (same world), right-click details, shift-right opens delete confirmation; delete re-checks ownership.
 - **Trust**: stand in **own** claim; `/trust <online player>` / `/untrust`; `/trustlist` (requires same permission node as trust).
 - **`/abandonclaim`**: two-step within 10s; moving to another claim resets confirmation.
 - **Protection** (non-trusted visitors): break/place, configured containers/doors/redstone, living entities, hanging entities, vehicles (when enabled), explosions (blocks removed from explosion list inside claims), fire spread / burn across claim edge, fluid flow into claim from outside, bucket use.
@@ -68,7 +68,13 @@ Confirm `/spawn` is **not** registered by CPSMP (by design).
 - **Admin**: `/claimadmin info <player>`, `/claimadmin delete <id>`, `/claimadmin reload` (`cpsmp.claim.admin`). `/cpsmpadmin info` includes a Claims line.
 - **Reload**: `/cpsmpadmin reload` reloads `claims.yml` and refills the claim cache. `/claimadmin reload` reloads only `claims.yml` + claim cache. Turning claims **off** in `claims.yml` unregisters protection listeners (SQLite may stay open). Turning claims **on** again via reload opens SQLite and registers listeners without a full server restart when JDBC is available.
 - **Persistence**: `claims.db` survives restarts; verify after reboot that `/claims` still lists rows.
-- **Conflicts**: do not run a second land-claim plugin on the same area without understanding overlap (see `COMPATIBILITY.md`).
+- **`/plot show`** / **`/cpplot show`** / **`/claim show`** (and `show toggle`, treated the same): **toggle** your personal outline — first activation while **standing in a claim** shows the border; activate again to **hide immediately**. While **not** in a claim, first use → `claim.show-not-in-claim`. With **`claims.visuals.enabled: false`**, the command clears any leftover per-player WorldBorder/particles and sends `claim.show-disabled`. Requires `cpsmp.claim.info` **or** `cpsmp.claim.show`.
+- **`claims.visuals.mode`**: default **`worldborder_if_safe`** uses Paper/Bukkit `createWorldBorder()` + `Player#setWorldBorder` (approximate **square** using the larger of width/depth for rectangular claims); **`particles`** block is the fallback path with **`END_ROD`** (or config) at low density (`max-visible-particles-per-tick`). Does **not** change the world’s global border.
+- **Logout / world change / plugin reload**: personal claim visuals are cleared (no duplicate tasks).
+- **`claims.plot-alias.enabled`**: when `false`, **`/plot`** is rejected with `claim.plot-alias-disabled` — use **`/cpplot show`** or **`/claim show`** (safe when another plugin owns `/plot`, e.g. PlotSquared).
+- **COMMAND_CONFLICT**: If `/plot` is owned by another plugin, CPSMP’s executor may not run — verify **`/cpplot show`** and **`/claim show`** still work; watch console for `admin.log.command-conflict` where applicable.
+- **Messages migration**: first start on an old `messages.yml` without `meta.gui-style-version: 2` copies **`messages.backup-before-v4-visual-update.yml`** and patches known GUI/title keys; console logs a German warning. **`/cpsmpadmin refreshmessages gui`** forces the same key set from the JAR default with a timestamped backup.
+- **Auction GUI titles**: inventory titles use high-contrast `<bold><gold>…` strings (`auction.gui.*-title`); verify readability against the vanilla chest background.
 
 ## Inventory transfer (V3.0)
 
@@ -119,6 +125,7 @@ Confirm `/spawn` is **not** registered by CPSMP (by design).
 2. Shift-click, number keys, drop, offhand, double-click collect-to-cursor, creative actions on **display** slots should not move GUI chrome into the player inventory.
 3. Browse **Sortieren** / **Aktualisieren**: list updates without stale ordering (see V2.5 sort fix).
 4. After another player buys a listing still shown on your page, buy confirm should fail safely (no duplication).
+5. **Readability (post–V4.0 polish)**: hub buttons, browse listing lore (price/seller/expiry/hints), sort/refresh labels, empty state, collect tiles, and buy-confirm / cancel panes use high-contrast MiniMessage from `messages.yml` (gold/white values, gradient titles); no illegible dark-on-dark lore on defaults.
 
 ## Anvil sell test
 

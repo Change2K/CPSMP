@@ -82,6 +82,7 @@ still applies to everyone else.
 
 - **Claims / base protection** are implemented only inside CPSMP (`claims.yml`, `claims.db`, `de.deinserver.cpsmp.claims`). No WorldGuard, GriefPrevention, Lands, or Residence hooks in V4.0.
 - **Overlap with external claim plugins**: Running two land-protection systems on the same blocks can confuse players and double-cancel events. Prefer **one** ownership model per world unless you know exactly how both plugins interact.
+- **Plot / claim commands**: Bukkit may give **`/plot`** to another plugin (e.g. PlotSquared) based on load order. CPSMP never unregisters foreign commands; use **`/cpplot show`**, **`/claim show`**, **`/plots`**, **`/claims`**, or **`/cpplots`** / **`/cpclaims`** as stable CPSMP entry points when `/plot` is not this plugin.
 - **No NMS / `CraftBukkit` internals**: Claims use public Bukkit events, `java.sql`, and the same Paper `libraries:` SQLite driver as the Auction House and Homes.
 
 ## Updating to a newer Paper / Minecraft version

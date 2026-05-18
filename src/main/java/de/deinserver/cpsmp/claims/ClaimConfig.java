@@ -40,9 +40,17 @@ public final class ClaimConfig {
     private final boolean protectLiquidFlow;
     private final boolean protectBuckets;
     private final boolean visualsEnabled;
+    private final ClaimVisualMode visualMode;
+    private final ClaimVisualMode fallbackVisualMode;
+    private final boolean particlesFallbackEnabled;
+    private final boolean showOnceIsToggle;
+    private final boolean clearBorderOnWorldChange;
     private final String borderParticleRaw;
     private final int visualDurationSeconds;
     private final int visualIntervalTicks;
+    private final int visualRefreshIntervalTicks;
+    private final int maxVisibleParticlesPerTick;
+    private final boolean plotAliasEnabled;
     private final boolean bypassActionBar;
     private final long bypassActionBarCooldownMs;
 
@@ -75,9 +83,17 @@ public final class ClaimConfig {
             this.protectLiquidFlow = true;
             this.protectBuckets = true;
             this.visualsEnabled = true;
+            this.visualMode = ClaimVisualMode.WORLDBORDER_IF_SAFE;
+            this.fallbackVisualMode = ClaimVisualMode.PARTICLES;
+            this.particlesFallbackEnabled = true;
+            this.showOnceIsToggle = true;
+            this.clearBorderOnWorldChange = true;
             this.borderParticleRaw = "END_ROD";
-            this.visualDurationSeconds = 8;
-            this.visualIntervalTicks = 10;
+            this.visualDurationSeconds = 20;
+            this.visualIntervalTicks = 20;
+            this.visualRefreshIntervalTicks = 20;
+            this.maxVisibleParticlesPerTick = 80;
+            this.plotAliasEnabled = true;
             this.bypassActionBar = true;
             this.bypassActionBarCooldownMs = 2500;
             return;
@@ -120,9 +136,35 @@ public final class ClaimConfig {
 
         ConfigurationSection vis = root.getConfigurationSection("visuals");
         this.visualsEnabled = vis == null || vis.getBoolean("enabled", true);
-        this.borderParticleRaw = vis != null ? vis.getString("border-particle", "END_ROD") : "END_ROD";
-        this.visualDurationSeconds = Math.max(1, vis != null ? vis.getInt("duration-seconds", 8) : 8);
-        this.visualIntervalTicks = Math.max(1, vis != null ? vis.getInt("interval-ticks", 10) : 10);
+        this.visualMode = ClaimVisualMode.fromConfig(vis != null ? vis.getString("mode", "worldborder_if_safe") : "worldborder_if_safe");
+        this.fallbackVisualMode = ClaimVisualMode.fromConfig(vis != null ? vis.getString("fallback-mode", "particles") : "particles");
+        this.particlesFallbackEnabled = readParticlesFallbackEnabled(vis);
+        this.showOnceIsToggle = vis != null && vis.getBoolean("show-once-is-toggle", true);
+        this.clearBorderOnWorldChange = vis == null || vis.getBoolean("clear-on-world-change", true);
+        ConfigurationSection pvis = vis != null ? vis.getConfigurationSection("particles") : null;
+        if (pvis != null) {
+            this.borderParticleRaw = pvis.getString("border-particle",
+                    vis != null ? vis.getString("border-particle", "END_ROD") : "END_ROD");
+            this.visualIntervalTicks = Math.max(1, pvis.getInt("interval-ticks",
+                    vis != null ? vis.getInt("interval-ticks", 20) : 20));
+            this.maxVisibleParticlesPerTick = Math.max(8, pvis.getInt("max-visible-particles-per-tick",
+                    vis != null ? vis.getInt("max-visible-particles-per-tick", 80) : 80));
+        } else if (vis != null) {
+            this.borderParticleRaw = vis.getString("border-particle", "END_ROD");
+            this.visualIntervalTicks = Math.max(1, vis.getInt("interval-ticks", 20));
+            this.maxVisibleParticlesPerTick = Math.max(8, vis.getInt("max-visible-particles-per-tick", 80));
+        } else {
+            this.borderParticleRaw = "END_ROD";
+            this.visualIntervalTicks = 20;
+            this.maxVisibleParticlesPerTick = 80;
+        }
+        this.visualDurationSeconds = Math.max(1, vis != null ? vis.getInt("duration-seconds", 20) : 20);
+        this.visualRefreshIntervalTicks = Math.max(1, vis != null
+                ? vis.getInt("refresh-interval-ticks", vis.getInt("toggle-interval-ticks", 20))
+                : 20);
+
+        ConfigurationSection plotAlias = root.getConfigurationSection("plot-alias");
+        this.plotAliasEnabled = plotAlias == null || plotAlias.getBoolean("enabled", true);
 
         ConfigurationSection admin = root.getConfigurationSection("admin");
         this.bypassActionBar = admin == null || admin.getBoolean("bypass-actionbar", true);
@@ -137,6 +179,17 @@ public final class ClaimConfig {
             }
         }
         return out;
+    }
+
+    private static boolean readParticlesFallbackEnabled(ConfigurationSection vis) {
+        if (vis == null) {
+            return true;
+        }
+        ConfigurationSection p = vis.getConfigurationSection("particles");
+        if (p != null) {
+            return p.getBoolean("enabled-as-fallback", true);
+        }
+        return true;
     }
 
     public boolean isEnabled() {
@@ -263,6 +316,38 @@ public final class ClaimConfig {
 
     public int getVisualIntervalTicks() {
         return visualIntervalTicks;
+    }
+
+    public ClaimVisualMode getVisualMode() {
+        return visualMode;
+    }
+
+    public ClaimVisualMode getFallbackVisualMode() {
+        return fallbackVisualMode;
+    }
+
+    public boolean isParticlesFallbackEnabled() {
+        return particlesFallbackEnabled;
+    }
+
+    public boolean isShowOnceIsToggle() {
+        return showOnceIsToggle;
+    }
+
+    public boolean isClearBorderOnWorldChange() {
+        return clearBorderOnWorldChange;
+    }
+
+    public int getVisualRefreshIntervalTicks() {
+        return visualRefreshIntervalTicks;
+    }
+
+    public int getMaxVisibleParticlesPerTick() {
+        return maxVisibleParticlesPerTick;
+    }
+
+    public boolean isPlotAliasEnabled() {
+        return plotAliasEnabled;
     }
 
     public boolean isBypassActionBar() {

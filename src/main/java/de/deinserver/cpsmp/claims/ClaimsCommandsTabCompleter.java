@@ -18,6 +18,28 @@ public final class ClaimsCommandsTabCompleter implements TabCompleter {
     public @Nullable List<String> onTabComplete(@NotNull CommandSender sender, @NotNull Command command,
                                                   @NotNull String alias, @NotNull String[] args) {
         String name = command.getName().toLowerCase(Locale.ROOT);
+        boolean showCommands = name.equals("claim") || name.equals("cpclaim")
+                || name.equals("plot") || name.equals("cpplot");
+        if (showCommands) {
+            if (!(sender instanceof Player requester) || !ClaimPermission.canShowClaimBorder(requester)) {
+                return List.of();
+            }
+            if (args.length == 1) {
+                String p = args[0].toLowerCase(Locale.ROOT);
+                if ("show".startsWith(p)) {
+                    return List.of("show");
+                }
+                return List.of();
+            }
+            if (args.length == 2 && "show".equalsIgnoreCase(args[0])) {
+                String p = args[1].toLowerCase(Locale.ROOT);
+                if ("toggle".startsWith(p)) {
+                    return List.of("toggle");
+                }
+                return List.of();
+            }
+            return List.of();
+        }
         boolean trust = name.equals("trust") || name.equals("cptrust");
         boolean untrust = name.equals("untrust") || name.equals("cpuntrust");
         if (!trust && !untrust) {

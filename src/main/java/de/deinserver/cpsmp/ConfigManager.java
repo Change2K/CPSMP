@@ -55,6 +55,7 @@ public final class ConfigManager {
         plugin.reloadConfig();
 
         this.messagesFile = ensureFile(MESSAGES_FILE);
+        MessagesGuiStyleMigration.migrateIfNeeded(plugin, messagesFile);
         this.portalsFile = ensureFile(PORTALS_FILE);
         this.zonesFile = ensureFile(ZONES_FILE);
         this.economyFile = ensureFile(ECONOMY_FILE);
@@ -96,6 +97,19 @@ public final class ConfigManager {
 
     public FileConfiguration getMessages() {
         return messages;
+    }
+
+    /** On-disk {@code messages.yml} (after migration / external edits). */
+    public File getMessagesFile() {
+        return messagesFile;
+    }
+
+    /**
+     * Re-reads {@code messages.yml} from disk (used by {@code /cpsmpadmin refreshmessages gui}).
+     */
+    public void reloadMessages() {
+        this.messagesFile = ensureFile(MESSAGES_FILE);
+        this.messages = loadWithDefaults(messagesFile, MESSAGES_FILE);
     }
 
     public FileConfiguration getPortals() {

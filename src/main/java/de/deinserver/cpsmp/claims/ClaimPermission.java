@@ -10,6 +10,10 @@ public final class ClaimPermission {
 
     public static final String CLAIM_ROOT = "cpsmp.claim";
     public static final String CLAIM_INFO = "cpsmp.claim.info";
+    /**
+     * Preview / toggle of claim boundaries (/plot show, /claim show). Default true in plugin.yml.
+     */
+    public static final String CLAIM_SHOW = "cpsmp.claim.show";
     public static final String CLAIM_LIST = "cpsmp.claim.list";
     public static final String CLAIM_TRUST = "cpsmp.claim.trust";
     public static final String CLAIM_UNTRUST = "cpsmp.claim.untrust";
@@ -41,5 +45,12 @@ public final class ClaimPermission {
 
     public static boolean hasBypass(@NotNull Player player) {
         return player.isOp() || player.hasPermission(BYPASS);
+    }
+
+    /**
+     * Plot/Claim-Grenze anzeigen ({@link ClaimPermission#CLAIM_INFO} oder {@link ClaimPermission#CLAIM_SHOW}).
+     */
+    public static boolean canShowClaimBorder(@NotNull Player player) {
+        return player.hasPermission(CLAIM_INFO) || player.hasPermission(CLAIM_SHOW);
     }
 }

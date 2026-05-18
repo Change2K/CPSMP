@@ -114,13 +114,17 @@ commands:
     usage: /cpback
     permission: cpsmp.back
   claim:
-    description: Erstelle ein Claim um deine aktuelle Position.
-    usage: /claim
-    permission: cpsmp.claim
+    description: Claim erstellen oder Grenze anzeigen (/claim show).
+    usage: "/claim | /claim show | /claim show toggle"
   cpclaim:
     description: CPSMP-Alias fuer /claim.
-    usage: /cpclaim
-    permission: cpsmp.claim
+    usage: "/cpclaim | /cpclaim show | /cpclaim show toggle"
+  plot:
+    description: Claim-Grenze anzeigen (Plot-Alias, optional deaktivierbar).
+    usage: "/plot show | /plot show toggle"
+  cpplot:
+    description: CPSMP Claim-Grenze ohne /plot-Konflikte.
+    usage: "/cpplot show | /cpplot show toggle"
   claiminfo:
     description: Zeige Claim-Infos an deiner Position.
     usage: /claiminfo
@@ -130,12 +134,20 @@ commands:
     usage: /cpclaiminfo
     permission: cpsmp.claim.info
   claims:
-    description: Liste deiner Claims.
+    description: Uebersicht deiner Claims/Plots (GUI).
     usage: /claims
     permission: cpsmp.claim.list
   cpclaims:
     description: CPSMP-Alias fuer /claims.
     usage: /cpclaims
+    permission: cpsmp.claim.list
+  plots:
+    description: Zeige deine Claims/Plots im GUI (Alias zu /claims).
+    usage: /plots
+    permission: cpsmp.claim.list
+  cpplots:
+    description: CPSMP-Alias fuer /plots.
+    usage: /cpplots
     permission: cpsmp.claim.list
   trust:
     description: Vertraue einem Spieler im aktuellen Claim.
@@ -180,7 +192,7 @@ commands:
     permission: cpsmp.ah
   cpsmpadmin:
     description: Administrative Befehle fuer CPSMP.
-    usage: /cpsmpadmin <setspawn|setportal|setzone|homes|reload|info>
+    usage: /cpsmpadmin <setspawn|setportal|portal|setzone|homes|refreshmessages|reload|info>
     permission: cpsmp.admin
     aliases: [cpsmpa, cpa]
 
@@ -255,7 +267,12 @@ permissions:
     description: Erlaubt /back und /cpback.
     default: false
   cpsmp.claim:
-    description: Erlaubt /claim und /cpclaim.
+    description: Erlaubt /claim und /cpclaim (Claim erstellen).
+    default: true
+    children:
+      cpsmp.claim.show: true
+  cpsmp.claim.show:
+    description: Erlaubt /claim show, /plot show (Claim-Grenze).
     default: true
   cpsmp.claim.info:
     description: Erlaubt Claim-Infos.

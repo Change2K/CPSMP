@@ -7,11 +7,11 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 
-public final class ClaimsCommand implements CommandExecutor {
+public final class PlotCommand implements CommandExecutor {
 
     private final CPSMPPlugin plugin;
 
-    public ClaimsCommand(CPSMPPlugin plugin) {
+    public PlotCommand(CPSMPPlugin plugin) {
         this.plugin = plugin;
     }
 
@@ -22,16 +22,7 @@ public final class ClaimsCommand implements CommandExecutor {
             plugin.getMessageManager().sendPrefixed(sender, "general.player-only");
             return true;
         }
-        if (!player.hasPermission(ClaimPermission.CLAIM_LIST)) {
-            plugin.getMessageManager().sendPrefixed(player, "claim.no-permission");
-            return true;
-        }
-        var gui = plugin.getClaimGuiManager();
-        if (gui == null) {
-            plugin.getMessageManager().sendPrefixed(player, "claim.disabled");
-            return true;
-        }
-        gui.openMain(player);
+        ClaimShowExecutor.run(player, plugin, command.getName(), args);
         return true;
     }
 }

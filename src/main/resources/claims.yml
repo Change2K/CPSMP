@@ -42,9 +42,23 @@ claims:
 
   visuals:
     enabled: true
-    border-particle: END_ROD
-    duration-seconds: 8
-    interval-ticks: 10
+    # worldborder_if_safe: per-player WorldBorder (quadratisch, groessere Kantenlaenge bei Rechteck-Claims).
+    # Partikel nur als Fallback oder bei mode: particles.
+    mode: worldborder_if_safe
+    fallback-mode: particles
+    duration-seconds: 20
+    show-once-is-toggle: true
+    clear-on-world-change: true
+    refresh-interval-ticks: 20
+    particles:
+      enabled-as-fallback: true
+      border-particle: END_ROD
+      interval-ticks: 20
+      max-visible-particles-per-tick: 80
+
+  # When false, /plot is rejected in-game; use /cpplot show or /claim show instead (PlotSquared-safe).
+  plot-alias:
+    enabled: true
 
   admin:
     bypass-actionbar: true

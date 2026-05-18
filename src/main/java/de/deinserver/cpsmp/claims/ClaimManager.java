@@ -45,6 +45,7 @@ public final class ClaimManager {
         this.plugin = plugin;
         this.visuals = new ClaimVisualService(plugin, this);
         this.config = new ClaimConfig(plugin.getConfigManager().getClaims());
+        Bukkit.getPluginManager().registerEvents(new ClaimVisualQuitListener(visuals), plugin);
     }
 
     public ClaimConfig getConfig() {
@@ -133,7 +134,11 @@ public final class ClaimManager {
         this.config = new ClaimConfig(plugin.getConfigManager().getClaims());
         if (!config.isEnabled()) {
             unregisterProtectionListener();
+            clearAllClaimVisualsForOnlinePlayers();
             return;
+        }
+        if (!config.isVisualsEnabled()) {
+            clearAllClaimVisualsForOnlinePlayers();
         }
         if (!initSqlite()) {
             return;
@@ -178,6 +183,49 @@ public final class ClaimManager {
         }
         shutdownExecutorOnly();
         storageReady = false;
+    }
+
+    /**
+     * Clears per-player claim outlines (WorldBorder, particles, tasks) for every online player.
+     * Used when claims or visuals are turned off in config or on full module reload.
+     */
+    public void clearAllClaimVisualsForOnlinePlayers() {
+        for (Player p : Bukkit.getOnlinePlayers()) {
+            visuals.clearPlayer(p);
+        }
+    }
+
+    /**
+     * Deletes a claim by ID when {@code player} is the owner. Runs SQLite work async; on success
+     * updates cache, clears any pinned/feet visuals for that claim, and runs {@code onSuccess} on the main thread.
+     */
+    public void deleteOwnedClaimAsPlayer(Player player, long claimId, Runnable onSuccess) {
+        if (!isOperational()) {
+            plugin.getMessageManager().sendPrefixed(player, "claim.storage-error");
+            return;
+        }
+        Claim c = cache.byId(claimId);
+        if (c == null || !c.ownerUuid().equals(player.getUniqueId())) {
+            plugin.getMessageManager().sendPrefixed(player, "claim.gui-delete-not-owner");
+            return;
+        }
+        SQLiteClaimStorage st = storage;
+        ExecutorService ex = dbExecutor;
+        ex.submit(() -> {
+            try {
+                st.deleteClaim(claimId);
+                Bukkit.getScheduler().runTask(plugin, () -> {
+                    cache.removeClaim(claimId);
+                    visuals.onClaimDeleted(claimId);
+                    plugin.getMessageManager().sendPrefixed(player, "claim.gui-deleted",
+                            Map.of("id", Long.toString(claimId)));
+                    onSuccess.run();
+                });
+            } catch (Exception e) {
+                Bukkit.getScheduler().runTask(plugin,
+                        () -> plugin.getMessageManager().sendPrefixed(player, "claim.storage-error"));
+            }
+        });
     }
 
     private void shutdownExecutorOnly() {
@@ -379,7 +427,7 @@ public final class ClaimManager {
                                     "w", Integer.toString(w),
                                     "d", Integer.toString(d),
                                     "world", world));
-                    visuals.showBorder(player, cl);
+                    visuals.showTimedPreview(player, cl);
                 });
             } catch (Exception e) {
                 plugin.getLogger().warning("[CPSMP] Claim create: " + e.getMessage());
@@ -401,7 +449,7 @@ public final class ClaimManager {
         }
         sendInfoLines(player, at);
         if (isOperational() && config.isVisualsEnabled()) {
-            visuals.showBorder(player, at);
+            visuals.showTimedPreview(player, at);
         }
     }
 
@@ -601,6 +649,7 @@ public final class ClaimManager {
                 st.deleteClaim(cid);
                 Bukkit.getScheduler().runTask(plugin, () -> {
                     cache.removeClaim(cid);
+                    visuals.onClaimDeleted(cid);
                     plugin.getMessageManager().sendPrefixed(player, "claim.abandoned",
                             Map.of("id", Long.toString(cid)));
                 });
@@ -647,6 +696,7 @@ public final class ClaimManager {
                 Bukkit.getScheduler().runTask(plugin, () -> {
                     if (ok) {
                         cache.removeClaim(claimId);
+                        visuals.onClaimDeleted(claimId);
                         plugin.getMessageManager().sendPrefixed(viewer, "claim.admin-delete-success",
                                 Map.of("id", Long.toString(claimId)));
                     } else {
