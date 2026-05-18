@@ -14,7 +14,7 @@ import java.util.logging.Level;
  * Loads, saves and re-loads the configuration files used by CPSMP:
  * {@code config.yml}, {@code messages.yml}, {@code portals.yml},
  * {@code zones.yml}, {@code economy.yml}, {@code auctionhouse.yml} and
- * {@code teleports.yml} (V3.0 Homes / TPA).
+ * {@code teleports.yml} (V3.0 Homes / TPA) and {@code claims.yml} (V4.0 Claims).
  * Each external file is created from the bundled default on first
  * launch.
  */
@@ -26,6 +26,7 @@ public final class ConfigManager {
     private static final String ECONOMY_FILE = "economy.yml";
     private static final String AUCTION_FILE = "auctionhouse.yml";
     private static final String TELEPORTS_FILE = "teleports.yml";
+    private static final String CLAIMS_FILE = "claims.yml";
 
     private final CPSMPPlugin plugin;
 
@@ -35,6 +36,7 @@ public final class ConfigManager {
     private File economyFile;
     private File auctionFile;
     private File teleportsFile;
+    private File claimsFile;
 
     private FileConfiguration messages;
     private FileConfiguration portals;
@@ -42,6 +44,7 @@ public final class ConfigManager {
     private FileConfiguration economy;
     private FileConfiguration auction;
     private FileConfiguration teleports;
+    private FileConfiguration claims;
 
     public ConfigManager(CPSMPPlugin plugin) {
         this.plugin = plugin;
@@ -57,6 +60,7 @@ public final class ConfigManager {
         this.economyFile = ensureFile(ECONOMY_FILE);
         this.auctionFile = ensureFile(AUCTION_FILE);
         this.teleportsFile = ensureFile(TELEPORTS_FILE);
+        this.claimsFile = ensureFile(CLAIMS_FILE);
 
         this.messages = loadWithDefaults(messagesFile, MESSAGES_FILE);
         this.portals = loadWithDefaults(portalsFile, PORTALS_FILE);
@@ -64,6 +68,7 @@ public final class ConfigManager {
         this.economy = loadWithDefaults(economyFile, ECONOMY_FILE);
         this.auction = loadWithDefaults(auctionFile, AUCTION_FILE);
         this.teleports = loadWithDefaults(teleportsFile, TELEPORTS_FILE);
+        this.claims = loadWithDefaults(claimsFile, CLAIMS_FILE);
     }
 
     public void reload() {
@@ -114,6 +119,11 @@ public final class ConfigManager {
         return teleports;
     }
 
+    /** V4.0: {@code claims.yml} (Claims / base protection). */
+    public FileConfiguration getClaims() {
+        return claims;
+    }
+
     /**
      * Re-reads only {@code teleports.yml} from disk (used by
      * {@code /cpsmpadmin homes reload}).
@@ -121,6 +131,14 @@ public final class ConfigManager {
     public void reloadTeleports() {
         this.teleportsFile = ensureFile(TELEPORTS_FILE);
         this.teleports = loadWithDefaults(teleportsFile, TELEPORTS_FILE);
+    }
+
+    /**
+     * Re-reads only {@code claims.yml} (used by {@code /claimadmin reload}).
+     */
+    public void reloadClaims() {
+        this.claimsFile = ensureFile(CLAIMS_FILE);
+        this.claims = loadWithDefaults(claimsFile, CLAIMS_FILE);
     }
 
     public void savePortals() {

@@ -21,6 +21,16 @@ import de.deinserver.cpsmp.teleport.TeleportCommandsTabCompleter;
 import de.deinserver.cpsmp.teleport.TpAcceptCommand;
 import de.deinserver.cpsmp.teleport.TpDenyCommand;
 import de.deinserver.cpsmp.teleport.TpaCommand;
+import de.deinserver.cpsmp.claims.AbandonClaimCommand;
+import de.deinserver.cpsmp.claims.ClaimAdminCommand;
+import de.deinserver.cpsmp.claims.ClaimCommand;
+import de.deinserver.cpsmp.claims.ClaimInfoCommand;
+import de.deinserver.cpsmp.claims.ClaimManager;
+import de.deinserver.cpsmp.claims.ClaimsCommand;
+import de.deinserver.cpsmp.claims.ClaimsCommandsTabCompleter;
+import de.deinserver.cpsmp.claims.TrustCommand;
+import de.deinserver.cpsmp.claims.TrustListCommand;
+import de.deinserver.cpsmp.claims.UntrustCommand;
 import de.deinserver.cpsmp.teleport.TpaKind;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -38,7 +48,8 @@ import org.jetbrains.annotations.Nullable;
  * persistent spawn write, global reload).
  *
  * <p>V3.0 adds Homes, TPA and optional /back via
- * {@link CpsmpTeleportSubsystem}; V3.1 hardens those paths. Claims remain out of scope.</p>
+ * {@link CpsmpTeleportSubsystem}; V3.1 hardens those paths. V4.0 adds native
+ * Claims / base protection via {@link ClaimManager}.</p>
  */
 public final class CPSMPPlugin extends JavaPlugin {
 
@@ -56,6 +67,7 @@ public final class CPSMPPlugin extends JavaPlugin {
     private ZoneManager zoneManager;
     private ZoneListener zoneListener;
     private @Nullable CpsmpTeleportSubsystem teleportSubsystem;
+    private @Nullable ClaimManager claimManager;
     private AuctionHouseManager auctionHouseManager;
     private AuctionGuiManager auctionGuiManager;
     private AuctionGuiClickListener auctionGuiListener;
@@ -147,6 +159,37 @@ public final class CPSMPPlugin extends JavaPlugin {
         registerExecutorAndTab("back", backCmd, teleportTab);
         registerExecutorAndTab("cpback", backCmd, teleportTab);
 
+        this.claimManager = new ClaimManager(this);
+        this.claimManager.enable();
+        ClaimsCommandsTabCompleter claimsTab = new ClaimsCommandsTabCompleter();
+        ClaimCommand claimCmd = new ClaimCommand(this);
+        registerExecutorAndTab("claim", claimCmd, claimsTab);
+        registerExecutorAndTab("cpclaim", claimCmd, claimsTab);
+        ClaimInfoCommand claimInfo = new ClaimInfoCommand(this);
+        registerExecutorAndTab("claiminfo", claimInfo, claimsTab);
+        registerExecutorAndTab("cpclaiminfo", claimInfo, claimsTab);
+        ClaimsCommand claimsList = new ClaimsCommand(this);
+        registerExecutorAndTab("claims", claimsList, claimsTab);
+        registerExecutorAndTab("cpclaims", claimsList, claimsTab);
+        TrustCommand trustCmd = new TrustCommand(this);
+        registerExecutorAndTab("trust", trustCmd, claimsTab);
+        registerExecutorAndTab("cptrust", trustCmd, claimsTab);
+        UntrustCommand untrustCmd = new UntrustCommand(this);
+        registerExecutorAndTab("untrust", untrustCmd, claimsTab);
+        registerExecutorAndTab("cpuntrust", untrustCmd, claimsTab);
+        TrustListCommand trustList = new TrustListCommand(this);
+        registerExecutorAndTab("trustlist", trustList, claimsTab);
+        registerExecutorAndTab("cptrustlist", trustList, claimsTab);
+        AbandonClaimCommand abandon = new AbandonClaimCommand(this);
+        registerExecutorAndTab("abandonclaim", abandon, claimsTab);
+        registerExecutorAndTab("cpabandonclaim", abandon, claimsTab);
+        ClaimAdminCommand claimAdmin = new ClaimAdminCommand(this);
+        PluginCommand claimAdm = getCommand("claimadmin");
+        if (claimAdm != null) {
+            claimAdm.setExecutor(claimAdmin);
+            claimAdm.setTabCompleter(claimAdmin);
+        }
+
         CommandOwnershipDiagnostics.log(this);
 
         // /spawn is intentionally NOT registered: the bare /spawn name is
@@ -175,7 +218,7 @@ public final class CPSMPPlugin extends JavaPlugin {
             ah.setTabCompleter(auctionCommand);
         }
 
-        getLogger().info("CPSMP V3.1 enabled.");
+        getLogger().info("CPSMP V4.0 enabled.");
     }
 
     @Override
@@ -188,13 +231,16 @@ public final class CPSMPPlugin extends JavaPlugin {
         if (teleportSubsystem != null) {
             teleportSubsystem.disable();
         }
+        if (claimManager != null) {
+            claimManager.disable();
+        }
         // Close every open AH GUI before touching the backend so the
         // listener does not see stale references after disable.
         if (auctionGuiManager != null) auctionGuiManager.closeAll();
         // Disable the Auction House after closing GUIs so it can drain
         // pending DB work and close its SQLite handle cleanly.
         if (auctionHouseManager != null) auctionHouseManager.disable();
-        getLogger().info("CPSMP V3.0 disabled.");
+        getLogger().info("CPSMP V4.0 disabled.");
     }
 
     private void registerExecutorAndTab(String name, CommandExecutor executor, @Nullable TabCompleter tab) {
@@ -212,6 +258,14 @@ public final class CPSMPPlugin extends JavaPlugin {
      */
     public @Nullable CpsmpTeleportSubsystem getTeleportSubsystem() {
         return teleportSubsystem;
+    }
+
+    /**
+     * V4.0 Claims / base protection. Null when the manager was not constructed yet,
+     * otherwise non-null (even if claims are disabled in {@code claims.yml}).
+     */
+    public @Nullable ClaimManager getClaimManager() {
+        return claimManager;
     }
 
     /**
@@ -246,6 +300,9 @@ public final class CPSMPPlugin extends JavaPlugin {
         }
         if (teleportSubsystem != null) {
             teleportSubsystem.reload();
+        }
+        if (claimManager != null) {
+            claimManager.reload();
         }
     }
 

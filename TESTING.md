@@ -1,21 +1,22 @@
-# CPSMP manual test checklist (V3.0 / V3.1)
+# CPSMP manual test checklist (V3.0+ / V4.0)
 
 Use this list before promoting a build to production. Player-facing strings are German (`messages.yml`); this document is English for operators.
 
-V3.0 adds **Homes**, **TPA**, optional **`/back`**, and `teleports.yml` (plus `teleports.db` when Homes or `/back` are enabled). V3.1 is a **hardening** release for those systems (no new gameplay). `/spawn` remains **unregistered** by CPSMP.
+V3.0 adds **Homes**, **TPA**, optional **`/back`**, and `teleports.yml` (plus `teleports.db` when Homes or `/back` are enabled). V3.1 hardens those paths. **V4.0** adds **Claims** / base protection (`claims.yml`, `claims.db` SQLite). `/spawn` remains **unregistered** by CPSMP.
 
 ## Local server setup
 
 1. Java **21**, **Paper 1.21.4** (or your supported target from `COMPATIBILITY.md`).
 2. Drop `CPSMP-*.jar` in `plugins/`.
 3. Start once to generate default configs.
-4. Configure `config.yml` (spawn, RTP, portals, zones), `teleports.yml` (Homes / TPA / back), `economy.yml`, `auctionhouse.yml`, `portals.yml`, `zones.yml` as needed.
+4. Configure `config.yml` (spawn, RTP, portals, zones), `teleports.yml` (Homes / TPA / back), `claims.yml` (V4.0 claims), `economy.yml`, `auctionhouse.yml`, `portals.yml`, `zones.yml` as needed.
 
 ## Required plugins (by scenario)
 
 | Scenario | Plugins |
 |----------|---------|
 | Core only (spawn, RTP, portals, zones) | None |
+| V4.0 Claims (default) | None (SQLite via Paper `libraries:`) |
 | Auction sell with fees / economy gate | Vault + a Vault economy (e.g. EssentialsX + EssentialsX Economy) |
 | Auction buy | Vault + economy (hard requirement) |
 
@@ -25,6 +26,7 @@ V3.0 adds **Homes**, **TPA**, optional **`/back`**, and `teleports.yml` (plus `t
 - `/rtp` — random teleport (`cpsmp.rtp`).
 - `/cpsmpadmin` — admin tools (`cpsmp.admin`; `reload` also needs `cpsmp.reload`).
 - `/ah` — Auction House hub / GUI (`cpsmp.ah` + sub-permissions).
+- **V4.0**: `/claim`, `/claiminfo`, `/claims`, `/trust`, `/untrust`, `/trustlist`, `/abandonclaim`, `/claimadmin` (+ `cp*` aliases). Permissions: `cpsmp.claim`, `cpsmp.claims.*`, `cpsmp.claim.bypass`, `cpsmp.claim.admin`.
 
 Confirm `/spawn` is **not** registered by CPSMP (by design).
 
@@ -52,6 +54,21 @@ Confirm `/spawn` is **not** registered by CPSMP (by design).
 - **Delete confirm GUI**: only explicit confirm/cancel slots act; closing the inventory should not delete a home.
 - **`/back`**: if enabled, start a delayed teleport, disconnect before completion; no errors on reconnect. Async DB read completes when player is offline → no messages or teleport applied (`player.isOnline()` guard).
 - **Persistence**: restart server and `/cpsmpadmin reload` — home rows in SQLite unchanged; TPA only lives in memory across reload.
+
+## Claims / base protection (V4.0)
+
+- **World rules**: SMP (`smp`) allowed by default; `danger_zone` and `attack_zone` blocked in bundled `claims.yml` — adjust to your real world names.
+- **`/claim` / `/cpclaim`**: creates a centered claim; overlap → `claim.overlap`; wrong world → `claim.world-disabled`; at limit → `claim.limit-reached`. OP / `cpsmp.claims.unlimited` bypass count limits.
+- **`/claiminfo`**: in-claim details + optional particle border; standing outside → `claim.not-in-claim`.
+- **`/claims`**: chat list of own claims with id, world, center, size.
+- **Trust**: stand in **own** claim; `/trust <online player>` / `/untrust`; `/trustlist` (requires same permission node as trust).
+- **`/abandonclaim`**: two-step within 10s; moving to another claim resets confirmation.
+- **Protection** (non-trusted visitors): break/place, configured containers/doors/redstone, living entities, hanging entities, vehicles (when enabled), explosions (blocks removed from explosion list inside claims), fire spread / burn across claim edge, fluid flow into claim from outside, bucket use.
+- **Bypass**: `cpsmp.claim.bypass` or OP — subtle actionbar `claim.bypass-actionbar` (throttled).
+- **Admin**: `/claimadmin info <player>`, `/claimadmin delete <id>`, `/claimadmin reload` (`cpsmp.claim.admin`). `/cpsmpadmin info` includes a Claims line.
+- **Reload**: `/cpsmpadmin reload` reloads `claims.yml` and refills the claim cache. `/claimadmin reload` reloads only `claims.yml` + claim cache. Turning claims **off** in `claims.yml` unregisters protection listeners (SQLite may stay open). Turning claims **on** again via reload opens SQLite and registers listeners without a full server restart when JDBC is available.
+- **Persistence**: `claims.db` survives restarts; verify after reboot that `/claims` still lists rows.
+- **Conflicts**: do not run a second land-claim plugin on the same area without understanding overlap (see `COMPATIBILITY.md`).
 
 ## Inventory transfer (V3.0)
 

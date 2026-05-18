@@ -7,12 +7,12 @@ main: de.deinserver.cpsmp.CPSMPPlugin
 # re-test. See COMPATIBILITY.md.
 api-version: '1.21'
 author: deinserver
-description: Premium SMP foundation plugin (V3.0).
+description: Premium SMP foundation plugin (V4.0).
 load: POSTWORLD
 
-# Paper runtime library loading. CPSMP uses SQLite for the V2.1 Auction
-# House backend. Paper resolves and class-loads this library from Maven
-# Central before the plugin is enabled, so we never have to shade it.
+# Paper runtime library loading. CPSMP uses SQLite for the Auction House,
+# V3.0+ Homes /back, and V4.0 Claims. Paper resolves and class-loads this
+# library from Maven Central before the plugin is enabled.
 # On Spigot/CraftBukkit this directive is ignored; features that need JDBC
 # detect the missing driver, log a clear German message and disable
 # themselves without affecting the rest of the plugin.
@@ -113,7 +113,66 @@ commands:
     description: CPSMP-Alias fuer /back.
     usage: /cpback
     permission: cpsmp.back
-  ah:
+  claim:
+    description: Erstelle ein Claim um deine aktuelle Position.
+    usage: /claim
+    permission: cpsmp.claim
+  cpclaim:
+    description: CPSMP-Alias fuer /claim.
+    usage: /cpclaim
+    permission: cpsmp.claim
+  claiminfo:
+    description: Zeige Claim-Infos an deiner Position.
+    usage: /claiminfo
+    permission: cpsmp.claim.info
+  cpclaiminfo:
+    description: CPSMP-Alias fuer /claiminfo.
+    usage: /cpclaiminfo
+    permission: cpsmp.claim.info
+  claims:
+    description: Liste deiner Claims.
+    usage: /claims
+    permission: cpsmp.claim.list
+  cpclaims:
+    description: CPSMP-Alias fuer /claims.
+    usage: /cpclaims
+    permission: cpsmp.claim.list
+  trust:
+    description: Vertraue einem Spieler im aktuellen Claim.
+    usage: /trust <spieler>
+    permission: cpsmp.claim.trust
+  cptrust:
+    description: CPSMP-Alias fuer /trust.
+    usage: /cptrust <spieler>
+    permission: cpsmp.claim.trust
+  untrust:
+    description: Entferne Vertrauen im aktuellen Claim.
+    usage: /untrust <spieler>
+    permission: cpsmp.claim.untrust
+  cpuntrust:
+    description: CPSMP-Alias fuer /untrust.
+    usage: /cpuntrust <spieler>
+    permission: cpsmp.claim.untrust
+  trustlist:
+    description: Zeige vertraute Spieler im aktuellen Claim.
+    usage: /trustlist
+    permission: cpsmp.claim.trust
+  cptrustlist:
+    description: CPSMP-Alias fuer /trustlist.
+    usage: /cptrustlist
+    permission: cpsmp.claim.trust
+  abandonclaim:
+    description: Gebe das Claim an deiner Position auf (2 Schritte).
+    usage: /abandonclaim
+    permission: cpsmp.claim.abandon
+  cpabandonclaim:
+    description: CPSMP-Alias fuer /abandonclaim.
+    usage: /cpabandonclaim
+    permission: cpsmp.claim.abandon
+  claimadmin:
+    description: CPSMP Claim-Administration.
+    usage: /claimadmin <info|delete|reload>
+    permission: cpsmp.claim.admin
     description: Auktionshaus - Items verkaufen, eigene Angebote verwalten und Abholungen einsammeln.
     usage: /ah [sell|listings|cancel|collect|admin]
     aliases: [auctionhouse, auktion]
@@ -194,6 +253,45 @@ permissions:
   cpsmp.back:
     description: Erlaubt /back und /cpback.
     default: false
+  cpsmp.claim:
+    description: Erlaubt /claim und /cpclaim.
+    default: true
+  cpsmp.claim.info:
+    description: Erlaubt Claim-Infos.
+    default: true
+  cpsmp.claim.list:
+    description: Erlaubt /claims und /cpclaims.
+    default: true
+  cpsmp.claim.trust:
+    description: Erlaubt Vertrauen und Trustliste.
+    default: true
+  cpsmp.claim.untrust:
+    description: Erlaubt /untrust /cpuntrust.
+    default: true
+  cpsmp.claim.abandon:
+    description: Erlaubt /abandonclaim /cpabandonclaim.
+    default: true
+  cpsmp.claim.bypass:
+    description: Umgeht Claim-Schutz (mit Hinweis).
+    default: op
+  cpsmp.claim.admin:
+    description: Claim-Admin-Befehle (/claimadmin).
+    default: op
+  cpsmp.claims.1:
+    description: Mindestens 1 Claim (wenn hoehere claims.* fehlen).
+    default: true
+  cpsmp.claims.3:
+    description: Mindestens 3 Claims.
+    default: false
+  cpsmp.claims.5:
+    description: Mindestens 5 Claims.
+    default: false
+  cpsmp.claims.10:
+    description: Mindestens 10 Claims.
+    default: false
+  cpsmp.claims.unlimited:
+    description: Unbegrenzte Claims.
+    default: op
   # Auction House permissions. /ah is enabled for everyone by default and
   # gates its subcommands on the finer-grained nodes below so a server
   # owner can disable e.g. selling without disabling the whole command.
@@ -231,6 +329,8 @@ permissions:
       cpsmp.rtp.bypasscooldown: true
       cpsmp.portal.bypass: true
       cpsmp.ah.admin: true
+      cpsmp.claim.admin: true
+      cpsmp.claim.bypass: true
   cpsmp.reload:
     description: Erlaubt das Neuladen der Konfiguration.
     default: op

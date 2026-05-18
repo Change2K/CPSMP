@@ -54,7 +54,7 @@ runtime-only dependency is resolved by Paper itself through the
 
 | Library | Version | Purpose | Loader |
 |---|---|---|---|
-| `org.xerial:sqlite-jdbc` | `3.46.1.0` | JDBC driver for SQLite backends (`SQLiteAuctionStorage`, `SQLiteHomeStorage` for V3.0 Homes / /back). | Paper library loader (Maven Central). |
+| `org.xerial:sqlite-jdbc` | `3.46.1.0` | JDBC driver for SQLite (`SQLiteAuctionStorage`, `SQLiteHomeStorage`, `SQLiteClaimStorage` for V4.0 Claims). | Paper library loader (Maven Central). |
 
 CPSMP code touches only the JDK's `java.sql.*` API; the driver class
 itself is found at runtime via the standard JDBC `ServiceLoader`
@@ -62,9 +62,10 @@ mechanism. On Spigot / CraftBukkit the `libraries:` directive is
 ignored; if no SQLite driver is on the classpath, `AuctionHouseManager`
 catches the missing-driver error during init, logs a clear German
 message and disables itself without taking the rest of CPSMP down. The same
-driver is used when **Homes** or **`/back`** are enabled in `teleports.yml`;
-if SQLite is unavailable on non-Paper servers, that subsystem logs an error
-and skips opening `teleports.db` without affecting RTP, portals, or zones.
+driver is used when **Homes** or **`/back`** are enabled in `teleports.yml`,
+and when **V4.0 Claims** are enabled in `claims.yml`. If SQLite is
+unavailable on non-Paper servers, each subsystem logs an error and skips
+its database without affecting the others.
 
 ---
 
@@ -73,6 +74,7 @@ and skips opening `teleports.db` without affecting RTP, portals, or zones.
 | Feature scope | Required plugins |
 |---|---|
 | **CPSMP core** (spawn, RTP, portals, zones, admin) | **None** |
+| **V4.0 Claims** | None; requires `claims.yml`, optional SQLite (Paper `libraries:`). See `COMPATIBILITY.md` (no external claim plugin required). |
 | **V3.0+ Homes / TPA / optional `/back`** | None; requires `teleports.yml`, optional SQLite (Paper `libraries:`). See `COMPATIBILITY.md` for inventory policy. V3.1 adds no new dependencies. |
 | **Auction House (V2.1)** - selling with `fees.listing-fee > 0` or `require-economy-for-auction-house: true` | A Vault-compatible economy setup (Vault + one provider) |
 | **Auction House (V2.1)** - selling with no fee and `require-economy-for-auction-house: false` | None |
@@ -117,7 +119,7 @@ Listed in `plugin.yml`:
 
 ## 6. Compatibility Notes
 
-- **Per-world inventory plugins** (e.g. Multiverse-Inventories, PerWorldInventory): CPSMP does **not** implement its own per-world inventory storage and does **not** move, wipe, or restore player inventories on teleport, portals, RTP, zone transitions, Homes, or TPA. If you use a split-inventory plugin, group `smp`, `danger_zone`, and `attack_zone` (or your actual world names) in one shared profile so behavior matches the CPSMP SMP design. CPSMP may log a German hint at startup when a common per-world inventory plugin is detected.
+- **Per-world inventory plugins** (e.g. Multiverse-Inventories, PerWorldInventory): CPSMP does **not** implement its own per-world inventory storage and does **not** move, wipe, or restore player inventories on teleport, portals, RTP, zone transitions, Homes, TPA, or Claims. If you use a split-inventory plugin, group `smp`, `danger_zone`, and `attack_zone` (or your actual world names) in one shared profile so behavior matches the CPSMP SMP design. CPSMP may log a German hint at startup when a common per-world inventory plugin is detected.
 - CPSMP must **not** directly depend on EssentialsX, CMI, TheNewEconomy,
   XConomy, GemsEconomy or any other specific economy plugin. Support is
   routed through Vault.

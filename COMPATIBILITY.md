@@ -76,7 +76,13 @@ still applies to everyone else.
 - **Homes / TPA / optional `/back`** use `teleports.yml`, German strings in `messages.yml`, and SQLite (`teleports.db` by default) for `player_homes` and `teleport_back_locations` when Homes or `/back` are enabled. Cooldown bypass uses `cpsmp.home.bypasscooldown`, `cpsmp.tpa.bypasscooldown`, or OP.
 - **V3.1 hardening** (same feature set): TPA accept uses validate-then-remove so a failed accept never drops the request silently; combat-at-accept clears the pending request and messages both sides; `/tpa` and `/tpahere` tab-complete only suggest online players when the sender has `cpsmp.tpa` / `cpsmp.tpa.here`; the Homes GUI cancels drop-key and offhand-swap while open (same exploit class as Auction GUI). Message key `tpa.subsystem-unavailable` covers the theoretical disabled-subsystem edge during `/tpaccept`.
 - **Command conflicts**: Bukkit resolves overlapping command names by plugin load order. CPSMP registers duplicate **`cp*`-prefixed** commands in `plugin.yml` (`/cphome`, `/cptpa`, …) as a stable fallback without unregistering other plugins' commands. Startup may log a German hint if a primary name is owned by another plugin (`messages.yml` → `admin.log.*`).
-- **Inventories**: CPSMP does not clear or migrate inventories on `/smpspawn`, `/rtp`, portals, zones, Homes, or TPA. If you use Multiverse-Inventories, PerWorldInventory, or similar, configure one shared group for your SMP gameplay worlds.
+- **Inventories**: CPSMP does not clear or migrate inventories on `/smpspawn`, `/rtp`, portals, zones, Homes, TPA, or Claims. If you use Multiverse-Inventories, PerWorldInventory, or similar, configure one shared group for your SMP gameplay worlds.
+
+## V4.0 Claims (CPSMP-native)
+
+- **Claims / base protection** are implemented only inside CPSMP (`claims.yml`, `claims.db`, `de.deinserver.cpsmp.claims`). No WorldGuard, GriefPrevention, Lands, or Residence hooks in V4.0.
+- **Overlap with external claim plugins**: Running two land-protection systems on the same blocks can confuse players and double-cancel events. Prefer **one** ownership model per world unless you know exactly how both plugins interact.
+- **No NMS / `CraftBukkit` internals**: Claims use public Bukkit events, `java.sql`, and the same Paper `libraries:` SQLite driver as the Auction House and Homes.
 
 ## Updating to a newer Paper / Minecraft version
 
@@ -122,7 +128,7 @@ still applies to everyone else.
   `MessageManager` accordingly. This is out of scope for V1.
 - **Folia is not targeted.** Migrating would touch every scheduler call and
   the `BukkitTeleportAdapter`.
-- **Claims** remain out of scope for the current release line.
+- **V4.0 Claims** are intentionally simple: fixed-size `/claim` from config radii, per-claim trust only, no resizing workflow and no integration with WorldGuard-style external regions (see the Claims section above).
 - **V2.3 Auction House adds the premium German GUI on top of the
   V2.1/V2.2 backend.** The new `auction.gui` package contains
   `AuctionGuiManager`, `AuctionGuiSession` (the `InventoryHolder` used

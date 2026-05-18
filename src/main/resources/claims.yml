@@ -1,0 +1,51 @@
+# CPSMP V4.0 Claims / base protection (German messages in messages.yml).
+
+claims:
+  enabled: true
+  storage:
+    type: sqlite
+    file: claims.db
+
+  worlds:
+    allowed:
+      - smp
+    blocked:
+      - danger_zone
+      - attack_zone
+
+  creation:
+    default-radius-x: 8
+    default-radius-z: 8
+    min-size-x: 5
+    min-size-z: 5
+    max-size-x: 64
+    max-size-z: 64
+    prevent-overlap: true
+
+  limits:
+    default-claim-limit: 1
+
+  protection:
+    block-break: true
+    block-place: true
+    containers: true
+    doors: true
+    redstone-interaction: false
+    entity-damage: true
+    item-frames: true
+    armor-stands: true
+    vehicles: true
+    explosions: true
+    fire-spread: true
+    liquid-flow: true
+    buckets: true
+
+  visuals:
+    enabled: true
+    border-particle: END_ROD
+    duration-seconds: 8
+    interval-ticks: 10
+
+  admin:
+    bypass-actionbar: true
+    bypass-actionbar-cooldown-ms: 2500

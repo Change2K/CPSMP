@@ -1,5 +1,7 @@
 package de.deinserver.cpsmp;
 
+import de.deinserver.cpsmp.claims.ClaimConfig;
+import de.deinserver.cpsmp.claims.ClaimManager;
 import de.deinserver.cpsmp.teleport.CpsmpTeleportSubsystem;
 import de.deinserver.cpsmp.teleport.Home;
 import org.bukkit.Bukkit;
@@ -432,6 +434,16 @@ public final class AdminCommand implements CommandExecutor, TabCompleter {
                     "state", state,
                     "storage", storage,
                     "reason", reason
+            ));
+        }
+        ClaimManager cm = plugin.getClaimManager();
+        if (cm != null) {
+            ClaimConfig cc = cm.getConfig();
+            String cState = !cc.isEnabled() ? "AUS" : (cm.isStorageReady() ? "AN" : "FEHLER");
+            int cCount = cm.isStorageReady() ? cm.getCache().claimCount() : 0;
+            messages.sendPrefixed(sender, "admin.info-claims", Map.of(
+                    "state", cState,
+                    "count", Integer.toString(cCount)
             ));
         }
         return true;
