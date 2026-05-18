@@ -188,6 +188,8 @@ public final class CPSMPPlugin extends JavaPlugin {
         if (claimAdm != null) {
             claimAdm.setExecutor(claimAdmin);
             claimAdm.setTabCompleter(claimAdmin);
+        } else {
+            getLogger().warning(messageManager.raw("admin.log.command-missing-claimadmin"));
         }
 
         CommandOwnershipDiagnostics.log(this);
@@ -216,6 +218,8 @@ public final class CPSMPPlugin extends JavaPlugin {
         if (ah != null) {
             ah.setExecutor(auctionCommand);
             ah.setTabCompleter(auctionCommand);
+        } else {
+            getLogger().warning(messageManager.raw("admin.log.command-missing-ah"));
         }
 
         getLogger().info("CPSMP V4.0 enabled.");

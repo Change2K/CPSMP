@@ -173,6 +173,7 @@ commands:
     description: CPSMP Claim-Administration.
     usage: /claimadmin <info|delete|reload>
     permission: cpsmp.claim.admin
+  ah:
     description: Auktionshaus - Items verkaufen, eigene Angebote verwalten und Abholungen einsammeln.
     usage: /ah [sell|listings|cancel|collect|admin]
     aliases: [auctionhouse, auktion]

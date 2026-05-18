@@ -97,6 +97,8 @@ admin:
   log:
     command-conflict: "<yellow>[CPSMP]</yellow> Hinweis: Der Befehl /<yellow>{cmd}</yellow> wird moeglicherweise von <yellow>{owner}</yellow> belegt. Nutze die CPSMP-Aliase (/cp...)."
     command-fallback-active: "<yellow>[CPSMP]</yellow> CPSMP-Fallback-Befehle (/cp...) sind aktiv."
+    command-missing-ah: "[CPSMP] plugin.yml: Der Befehl 'ah' fehlt oder ist falsch. Auktionshaus (/ah, /auctionhouse, /auktion) ist nicht registriert."
+    command-missing-claimadmin: "[CPSMP] plugin.yml: Der Befehl 'claimadmin' fehlt. Claim-Administration ist nicht registriert."
     external-inventory-detected: "CPSMP: Externes Inventar-Plugin erkannt. Wenn smp, danger_zone und attack_zone nicht dieselbe Inventargruppe teilen, kann sich das Verhalten vom SMP-Konzept unterscheiden."
     inventory-policy: "CPSMP veraendert keine Inventare beim Weltwechsel. Wenn ein externes Inventar-Plugin aktiv ist, muessen smp, danger_zone und attack_zone dort in derselben Inventargruppe liegen."
   homes-usage: "<gray>/cpsmpadmin homes <info <spieler>|delete <spieler> <home>|reload></gray>"
@@ -387,6 +389,7 @@ claim:
   protection-deny-interact: "<red>Diese Interaktion ist geschuetzt.</red>"
   protection-deny-container: "<red>Dieser Behaelter ist geschuetzt.</red>"
   protection-deny-entity: "<red>Das ist in diesem Claim geschuetzt.</red>"
+  protection-deny-armorstand: "<red>Ruestungsstaender in diesem Claim sind geschuetzt.</red>"
   admin-usage: "<gray>/claimadmin <info <spieler>|delete <id>|reload></gray>"
   admin-info-usage: "<gray>/claimadmin info <spieler></gray>"
   admin-delete-usage: "<gray>/claimadmin delete <claimId></gray>"

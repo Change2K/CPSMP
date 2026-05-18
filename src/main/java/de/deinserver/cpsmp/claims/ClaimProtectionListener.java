@@ -24,6 +24,7 @@ import org.bukkit.event.block.BlockSpreadEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityExplodeEvent;
 import org.bukkit.event.hanging.HangingBreakByEntityEvent;
+import org.bukkit.event.player.PlayerArmorStandManipulateEvent;
 import org.bukkit.event.player.PlayerBucketEmptyEvent;
 import org.bukkit.event.player.PlayerBucketFillEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
@@ -122,6 +123,27 @@ public final class ClaimProtectionListener implements Listener {
                 plugin.getMessageManager().sendPrefixed(player, "claim.protection-deny-entity");
             }
         }
+    }
+
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onArmorStandManipulate(PlayerArmorStandManipulateEvent event) {
+        if (!claims.isOperational() || !claims.getConfig().isProtectArmorStands()) {
+            return;
+        }
+        Player player = event.getPlayer();
+        if (!shouldCheck(player)) {
+            return;
+        }
+        ArmorStand stand = event.getRightClicked();
+        Claim claim = claims.claimAt(stand.getLocation());
+        if (claim == null) {
+            return;
+        }
+        if (claims.canBuild(player, claim)) {
+            return;
+        }
+        event.setCancelled(true);
+        plugin.getMessageManager().sendPrefixed(player, "claim.protection-deny-armorstand");
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
