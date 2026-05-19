@@ -42,4 +42,12 @@ public interface ClaimStorage {
     MergeClaimsResult mergeKeepKeeper(long keeperClaimId, List<Long> removeClaimIds,
                                       int newMinX, int newMaxX, int newMinZ, int newMaxZ,
                                       int newOwnerClaimNumber, long now) throws ClaimStorageException;
+
+    Map<Long, Map<String, String>> loadAllFlags() throws ClaimStorageException;
+
+    Map<String, String> loadFlags(long claimId) throws ClaimStorageException;
+
+    void setFlag(long claimId, String key, String value, long now) throws ClaimStorageException;
+
+    void deleteFlag(long claimId, String key) throws ClaimStorageException;
 }

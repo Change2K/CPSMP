@@ -56,6 +56,10 @@ public final class ClaimEntryDisplayService {
     }
 
     public boolean shouldShow(@NotNull Player player, @NotNull Claim claim, @NotNull ClaimEntryDisplayConfig cfg) {
+        if (manager.getConfig().getFlags().enabled()
+                && !manager.flagEnabled(claim, ClaimFlag.ENTRY_DISPLAY)) {
+            return false;
+        }
         boolean owner = claim.ownerUuid().equals(player.getUniqueId());
         if (owner) {
             return cfg.showToOwner();

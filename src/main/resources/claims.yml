@@ -1,4 +1,4 @@
-# CPSMP V4.0.5 Claims / base protection (German messages in messages.yml).
+# CPSMP V4.1 Claims / base protection (German messages in messages.yml).
 
 claims:
   enabled: true
@@ -35,6 +35,34 @@ claims:
     require-same-world: true
     allow-diagonal-touch: false
     require-standing-in-owned-claim: true
+
+  # Per-claim boolean flags (SQLite claim_flags). Missing row = default below.
+  flags:
+    enabled: true
+    defaults:
+      pvp: false
+      mob-damage: false
+      mob-spawning: false
+      explosions: false
+      fire-spread: false
+      liquid-flow: false
+      container-access: false
+      door-access: false
+      redstone-access: false
+      entry-display: true
+      border-display: true
+    allowed-player-edit:
+      pvp: true
+      mob-damage: true
+      mob-spawning: true
+      explosions: false
+      fire-spread: true
+      liquid-flow: true
+      container-access: true
+      door-access: true
+      redstone-access: true
+      entry-display: true
+      border-display: true
 
   protection:
     block-break: true

@@ -1,5 +1,6 @@
 package de.deinserver.cpsmp.claims;
 
+import de.deinserver.cpsmp.CPSMPPlugin;
 import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
@@ -14,6 +15,12 @@ import java.util.Locale;
 
 public final class ClaimsCommandsTabCompleter implements TabCompleter {
 
+    private final CPSMPPlugin plugin;
+
+    public ClaimsCommandsTabCompleter(CPSMPPlugin plugin) {
+        this.plugin = plugin;
+    }
+
     @Override
     public @Nullable List<String> onTabComplete(@NotNull CommandSender sender, @NotNull Command command,
                                                   @NotNull String alias, @NotNull String[] args) {
@@ -25,10 +32,32 @@ public final class ClaimsCommandsTabCompleter implements TabCompleter {
             }
             if (args.length == 1) {
                 String p = args[0].toLowerCase(Locale.ROOT);
+                List<String> out = new ArrayList<>();
                 if ("show".startsWith(p)) {
-                    return List.of("show");
+                    out.add("show");
                 }
-                return List.of();
+                if ("flags".startsWith(p) && (requester.hasPermission(ClaimPermission.FLAGS)
+                        || requester.hasPermission(ClaimPermission.FLAGS_ADMIN))) {
+                    out.add("flags");
+                }
+                return out;
+            }
+            if (args.length == 2 && "flags".equalsIgnoreCase(args[0])
+                    && (requester.hasPermission(ClaimPermission.FLAGS)
+                    || requester.hasPermission(ClaimPermission.FLAGS_ADMIN))) {
+                ClaimManager cm = plugin.getClaimManager();
+                if (cm == null) {
+                    return List.of();
+                }
+                String p = args[1].toLowerCase(Locale.ROOT);
+                List<String> nums = new ArrayList<>();
+                for (Claim c : cm.getCache().listForOwner(requester.getUniqueId())) {
+                    String s = Integer.toString(c.ownerClaimNumber());
+                    if (s.startsWith(p)) {
+                        nums.add(s);
+                    }
+                }
+                return nums;
             }
             if (args.length == 2 && "show".equalsIgnoreCase(args[0])) {
                 String p = args[1].toLowerCase(Locale.ROOT);

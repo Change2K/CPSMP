@@ -17,7 +17,7 @@ import java.util.Locale;
 
 public final class ClaimAdminCommand implements CommandExecutor, TabCompleter {
 
-    private static final List<String> SUB = List.of("info", "delete", "deleteglobal", "reload");
+    private static final List<String> SUB = List.of("info", "delete", "deleteglobal", "reload", "flags");
 
     private final CPSMPPlugin plugin;
 
@@ -42,6 +42,7 @@ public final class ClaimAdminCommand implements CommandExecutor, TabCompleter {
             case "delete" -> handleDelete(sender, args);
             case "deleteglobal" -> handleDeleteGlobal(sender, args);
             case "reload" -> handleReload(sender);
+            case "flags" -> handleFlags(sender, args);
             default -> {
                 plugin.getMessageManager().sendPrefixed(sender, "claim.admin-usage");
                 yield true;
@@ -126,6 +127,53 @@ public final class ClaimAdminCommand implements CommandExecutor, TabCompleter {
         return true;
     }
 
+    private boolean handleFlags(CommandSender sender, String[] args) {
+        if (!(sender instanceof Player admin)) {
+            plugin.getMessageManager().sendPrefixed(sender, "general.player-only");
+            return true;
+        }
+        if (args.length < 3) {
+            plugin.getMessageManager().sendPrefixed(sender, "claim.admin-flags-usage");
+            return true;
+        }
+        @SuppressWarnings("deprecation")
+        OfflinePlayer target = Bukkit.getOfflinePlayer(args[1]);
+        if (target.getName() == null && !target.hasPlayedBefore()) {
+            plugin.getMessageManager().sendPrefixed(sender, "claim.admin-unknown-player",
+                    java.util.Map.of("player", args[1]));
+            return true;
+        }
+        int num;
+        try {
+            num = Integer.parseInt(args[2]);
+        } catch (NumberFormatException e) {
+            plugin.getMessageManager().sendPrefixed(sender, "claim.admin-delete-bad-number",
+                    java.util.Map.of("n", args[2]));
+            return true;
+        }
+        if (num < 1) {
+            plugin.getMessageManager().sendPrefixed(sender, "claim.admin-delete-bad-number",
+                    java.util.Map.of("n", args[2]));
+            return true;
+        }
+        ClaimManager claims = plugin.getClaimManager();
+        if (claims == null || !claims.getConfig().isEnabled()) {
+            plugin.getMessageManager().sendPrefixed(sender, "claim.disabled");
+            return true;
+        }
+        if (!claims.getConfig().getFlags().enabled()) {
+            plugin.getMessageManager().sendPrefixed(sender, "claim.disabled");
+            return true;
+        }
+        Claim c = claims.getCache().byOwnerAndNumber(target.getUniqueId(), num);
+        if (c == null) {
+            plugin.getMessageManager().sendPrefixed(sender, "claim.flags-not-found");
+            return true;
+        }
+        plugin.getClaimGuiManager().openFlags(admin, c.id());
+        return true;
+    }
+
     private boolean handleReload(CommandSender sender) {
         plugin.getConfigManager().reloadClaims();
         ClaimManager claims = plugin.getClaimManager();
@@ -152,6 +200,12 @@ public final class ClaimAdminCommand implements CommandExecutor, TabCompleter {
             return filterOnlineNames(sender, args[1]);
         }
         if (args.length == 3 && args[0].equalsIgnoreCase("delete")) {
+            return filterOwnerClaimNumbers(args[1], args[2]);
+        }
+        if (args.length == 2 && args[0].equalsIgnoreCase("flags")) {
+            return filterOnlineNames(sender, args[1]);
+        }
+        if (args.length == 3 && args[0].equalsIgnoreCase("flags")) {
             return filterOwnerClaimNumbers(args[1], args[2]);
         }
         return List.of();

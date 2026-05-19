@@ -39,6 +39,10 @@ public final class ClaimCommandTabCompleter implements TabCompleter {
             if ("merge".startsWith(p)) {
                 out.add("merge");
             }
+            if ("flags".startsWith(p) && (requester.hasPermission(ClaimPermission.FLAGS)
+                    || requester.hasPermission(ClaimPermission.FLAGS_ADMIN))) {
+                out.add("flags");
+            }
             if (ClaimPermission.hasAdminClaimTeleport(requester)) {
                 for (Player o : Bukkit.getOnlinePlayers()) {
                     if (!requester.canSee(o)) {
@@ -66,6 +70,23 @@ public final class ClaimCommandTabCompleter implements TabCompleter {
                     return List.of("all");
                 }
                 return List.of();
+            }
+            if ("flags".equalsIgnoreCase(args[0])
+                    && (requester.hasPermission(ClaimPermission.FLAGS)
+                    || requester.hasPermission(ClaimPermission.FLAGS_ADMIN))) {
+                ClaimManager cm = plugin.getClaimManager();
+                if (cm == null) {
+                    return List.of();
+                }
+                String p = args[1].toLowerCase(Locale.ROOT);
+                List<String> nums = new ArrayList<>();
+                for (Claim c : cm.getCache().listForOwner(requester.getUniqueId())) {
+                    String s = Integer.toString(c.ownerClaimNumber());
+                    if (s.startsWith(p)) {
+                        nums.add(s);
+                    }
+                }
+                return nums;
             }
             if (ClaimPermission.hasAdminClaimTeleport(requester)) {
                 ClaimManager cm = plugin.getClaimManager();

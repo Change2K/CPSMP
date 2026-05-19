@@ -25,6 +25,7 @@ import de.deinserver.cpsmp.claims.AbandonClaimCommand;
 import de.deinserver.cpsmp.claims.ClaimAdminCommand;
 import de.deinserver.cpsmp.claims.ClaimCommand;
 import de.deinserver.cpsmp.claims.ClaimExitCommand;
+import de.deinserver.cpsmp.claims.ClaimFlagsCommand;
 import de.deinserver.cpsmp.claims.ClaimCommandTabCompleter;
 import de.deinserver.cpsmp.claims.ClaimInfoCommand;
 import de.deinserver.cpsmp.claims.ClaimManager;
@@ -181,7 +182,7 @@ public final class CPSMPPlugin extends JavaPlugin {
         MergeClaimsCommand mergeClaimsCmd = new MergeClaimsCommand(this);
         registerExecutorAndTab("merge", mergeClaimsCmd, mergeClaimsCmd);
         registerExecutorAndTab("cpmerge", mergeClaimsCmd, mergeClaimsCmd);
-        ClaimsCommandsTabCompleter claimsTab = new ClaimsCommandsTabCompleter();
+        ClaimsCommandsTabCompleter claimsTab = new ClaimsCommandsTabCompleter(this);
         ClaimInfoCommand claimInfo = new ClaimInfoCommand(this);
         registerExecutorAndTab("claiminfo", claimInfo, claimsTab);
         registerExecutorAndTab("cpclaiminfo", claimInfo, claimsTab);
@@ -208,6 +209,9 @@ public final class CPSMPPlugin extends JavaPlugin {
         PlotCommand plotCmd = new PlotCommand(this);
         registerExecutorAndTab("plot", plotCmd, claimsTab);
         registerExecutorAndTab("cpplot", plotCmd, claimsTab);
+        ClaimFlagsCommand claimFlagsCmd = new ClaimFlagsCommand(this);
+        registerExecutorAndTab("claimflags", claimFlagsCmd, claimFlagsCmd);
+        registerExecutorAndTab("cpclaimflags", claimFlagsCmd, claimFlagsCmd);
         ClaimAdminCommand claimAdmin = new ClaimAdminCommand(this);
         PluginCommand claimAdm = getCommand("claimadmin");
         if (claimAdm != null) {

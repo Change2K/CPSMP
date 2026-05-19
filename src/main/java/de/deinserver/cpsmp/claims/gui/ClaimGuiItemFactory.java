@@ -2,6 +2,7 @@ package de.deinserver.cpsmp.claims.gui;
 
 import de.deinserver.cpsmp.MessageManager;
 import de.deinserver.cpsmp.claims.Claim;
+import de.deinserver.cpsmp.claims.ClaimFlag;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Material;
@@ -185,6 +186,49 @@ public final class ClaimGuiItemFactory {
             meta.displayName(messages.component("claim.gui-delete-cancel").decoration(TextDecoration.ITALIC, NO_ITALIC));
             stack.setItemMeta(meta);
             ClaimGuiKeys.tagKind(stack, ClaimGuiKeys.Kind.DEL_CANCEL);
+        }
+        return stack;
+    }
+
+    public ItemStack btnFlags(long claimId) {
+        ItemStack stack = new ItemStack(Material.COMPARATOR);
+        ItemMeta meta = stack.getItemMeta();
+        if (meta != null) {
+            meta.displayName(messages.component("claim.flags-button").decoration(TextDecoration.ITALIC, NO_ITALIC));
+            meta.lore(List.of(messages.component("claim.flags-button-lore").decoration(TextDecoration.ITALIC, NO_ITALIC)));
+            stack.setItemMeta(meta);
+            ClaimGuiKeys.tagClaimButton(stack, ClaimGuiKeys.Kind.BTN_FLAGS, claimId);
+        }
+        return stack;
+    }
+
+    public ItemStack flagToggleItem(long claimId, @NotNull ClaimFlag flag, boolean value, boolean editable) {
+        ItemStack stack = new ItemStack(flag.iconMaterial());
+        ItemMeta meta = stack.getItemMeta();
+        if (meta != null) {
+            meta.displayName(messages.component(flag.messageKey()).decoration(TextDecoration.ITALIC, NO_ITALIC));
+            List<Component> lore = new ArrayList<>(4);
+            lore.add(messages.component(value ? "claim.flags-enabled" : "claim.flags-disabled")
+                    .decoration(TextDecoration.ITALIC, NO_ITALIC));
+            if (editable) {
+                lore.add(messages.component("claim.flags-click-toggle").decoration(TextDecoration.ITALIC, NO_ITALIC));
+            } else {
+                lore.add(messages.component("claim.flags-locked").decoration(TextDecoration.ITALIC, NO_ITALIC));
+            }
+            meta.lore(lore.stream().map(c -> c.decoration(TextDecoration.ITALIC, NO_ITALIC)).toList());
+            stack.setItemMeta(meta);
+            ClaimGuiKeys.tagFlagToggle(stack, claimId, flag);
+        }
+        return stack;
+    }
+
+    public ItemStack flagsBackButton() {
+        ItemStack stack = new ItemStack(Material.ARROW);
+        ItemMeta meta = stack.getItemMeta();
+        if (meta != null) {
+            meta.displayName(messages.component("claim.gui-btn-back").decoration(TextDecoration.ITALIC, NO_ITALIC));
+            stack.setItemMeta(meta);
+            ClaimGuiKeys.tagKind(stack, ClaimGuiKeys.Kind.FLAGS_BACK);
         }
         return stack;
     }

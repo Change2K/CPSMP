@@ -1,9 +1,11 @@
 package de.deinserver.cpsmp.claims;
 
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -22,6 +24,7 @@ public final class ClaimCache {
     private final Map<Long, Claim> byId = new ConcurrentHashMap<>();
     private final Map<String, List<Claim>> byWorld = new ConcurrentHashMap<>();
     private final Map<Long, Set<UUID>> trust = new ConcurrentHashMap<>();
+    private final Map<Long, EnumMap<ClaimFlag, Boolean>> flagsByClaimId = new ConcurrentHashMap<>();
     /** Key: owner UUID + visible claim number. */
     private final Map<String, Claim> byOwnerClaimNumber = new ConcurrentHashMap<>();
 
@@ -29,10 +32,12 @@ public final class ClaimCache {
         return owner.toString() + ":" + num;
     }
 
-    public synchronized void rebuild(List<Claim> claims, Map<Long, Set<UUID>> trustMap) {
+    public synchronized void rebuild(List<Claim> claims, Map<Long, Set<UUID>> trustMap,
+                                     Map<Long, EnumMap<ClaimFlag, Boolean>> flagsMap) {
         byId.clear();
         byWorld.clear();
         trust.clear();
+        flagsByClaimId.clear();
         byOwnerClaimNumber.clear();
         for (Claim c : claims) {
             byId.put(c.id(), c);
@@ -41,6 +46,13 @@ public final class ClaimCache {
         }
         for (Map.Entry<Long, Set<UUID>> e : trustMap.entrySet()) {
             trust.put(e.getKey(), new HashSet<>(e.getValue()));
+        }
+        if (flagsMap != null) {
+            for (Map.Entry<Long, EnumMap<ClaimFlag, Boolean>> e : flagsMap.entrySet()) {
+                if (e.getValue() != null && !e.getValue().isEmpty()) {
+                    flagsByClaimId.put(e.getKey(), new EnumMap<>(e.getValue()));
+                }
+            }
         }
     }
 
@@ -56,6 +68,7 @@ public final class ClaimCache {
     public synchronized void removeClaim(long id) {
         Claim removed = byId.remove(id);
         trust.remove(id);
+        flagsByClaimId.remove(id);
         if (removed != null) {
             byOwnerClaimNumber.remove(ownerNumKey(removed.ownerUuid(), removed.ownerClaimNumber()));
             List<Claim> list = byWorld.get(removed.worldName().toLowerCase(Locale.ROOT));
@@ -188,6 +201,29 @@ public final class ClaimCache {
 
     public synchronized int claimCount() {
         return byId.size();
+    }
+
+    public synchronized @Nullable Boolean getFlagOverride(long claimId, @NotNull ClaimFlag flag) {
+        EnumMap<ClaimFlag, Boolean> m = flagsByClaimId.get(claimId);
+        return m != null ? m.get(flag) : null;
+    }
+
+    public synchronized void setFlagInCache(long claimId, @NotNull ClaimFlag flag, boolean value) {
+        flagsByClaimId.computeIfAbsent(claimId, k -> new EnumMap<>(ClaimFlag.class)).put(flag, value);
+    }
+
+    public synchronized void removeFlagFromCache(long claimId, @NotNull ClaimFlag flag) {
+        EnumMap<ClaimFlag, Boolean> m = flagsByClaimId.get(claimId);
+        if (m != null) {
+            m.remove(flag);
+            if (m.isEmpty()) {
+                flagsByClaimId.remove(claimId);
+            }
+        }
+    }
+
+    public synchronized void clearFlags(long claimId) {
+        flagsByClaimId.remove(claimId);
     }
 
     /**

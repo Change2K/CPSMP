@@ -15,7 +15,8 @@ public final class ClaimGuiSession implements InventoryHolder {
     public enum Screen {
         LIST,
         DETAILS,
-        DELETE_CONFIRM
+        DELETE_CONFIRM,
+        FLAGS
     }
 
     private final UUID playerId;
@@ -24,6 +25,7 @@ public final class ClaimGuiSession implements InventoryHolder {
     private int listPage;
     private long detailsClaimId = -1L;
     private long pendingDeleteClaimId = -1L;
+    private long flagsClaimId = -1L;
 
     public ClaimGuiSession(@NotNull UUID playerId) {
         this.playerId = playerId;
@@ -63,6 +65,14 @@ public final class ClaimGuiSession implements InventoryHolder {
 
     public void setPendingDeleteClaimId(long pendingDeleteClaimId) {
         this.pendingDeleteClaimId = pendingDeleteClaimId;
+    }
+
+    public long flagsClaimId() {
+        return flagsClaimId;
+    }
+
+    public void setFlagsClaimId(long flagsClaimId) {
+        this.flagsClaimId = flagsClaimId;
     }
 
     @Override

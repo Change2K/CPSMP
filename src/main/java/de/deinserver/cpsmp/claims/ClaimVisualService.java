@@ -39,14 +39,16 @@ public final class ClaimVisualService {
     public enum ToggleFeetResult {
         SHOWN,
         HIDDEN,
-        NOT_IN_CLAIM
+        NOT_IN_CLAIM,
+        BORDER_DENIED
     }
 
     public enum ToggleGuiResult {
         SHOWN,
         HIDDEN,
         NOT_FOUND,
-        WRONG_WORLD
+        WRONG_WORLD,
+        BORDER_DENIED
     }
 
     private enum Source {
@@ -192,6 +194,9 @@ public final class ClaimVisualService {
         if (player.getWorld() == null
                 || !player.getWorld().getName().equalsIgnoreCase(c.worldName())) {
             return ToggleGuiResult.WRONG_WORLD;
+        }
+        if (!manager.canShowBorderFor(player, c)) {
+            return ToggleGuiResult.BORDER_DENIED;
         }
         deactivateFully(id, player);
         sourceByPlayer.put(id, Source.GUI);

@@ -197,9 +197,17 @@ commands:
     description: CPSMP-Alias fuer /claimexit.
     usage: /cpclaimexit
     permission: cpsmp.claim.exit
+  claimflags:
+    description: Claim-Flags verwalten (GUI).
+    usage: "/claimflags | /claimflags <Claim-Nr.>"
+    permission: cpsmp.claim.flags
+  cpclaimflags:
+    description: CPSMP-Alias fuer /claimflags.
+    usage: "/cpclaimflags | /cpclaimflags <Claim-Nr.>"
+    permission: cpsmp.claim.flags
   claimadmin:
     description: CPSMP Claim-Administration.
-    usage: /claimadmin <info <Spieler>|delete <Spieler> <Claim>|deleteglobal <id>|reload>
+    usage: /claimadmin <info <Spieler>|delete <Spieler> <Claim>|deleteglobal <id>|flags <Spieler> <Claim>|reload>
     permission: cpsmp.claim.admin
   ah:
     description: Auktionshaus - Items verkaufen, eigene Angebote verwalten und Abholungen einsammeln.
@@ -288,6 +296,7 @@ permissions:
     children:
       cpsmp.claim.show: true
       cpsmp.claim.merge: true
+      cpsmp.claim.flags: true
   cpsmp.claim.teleport.admin:
     description: Erlaubt /claim <Spieler> <Claim> (Teleport zum Claim eines Spielers).
     default: op
@@ -317,6 +326,12 @@ permissions:
     default: true
   cpsmp.claim.bypass:
     description: Umgeht Claim-Schutz (mit Hinweis).
+    default: op
+  cpsmp.claim.flags:
+    description: Erlaubt /claimflags, /claim flags und /plot flags.
+    default: true
+  cpsmp.claim.flags.admin:
+    description: Erlaubt Flag-Bearbeitung als Admin (/claimadmin flags).
     default: op
   cpsmp.claim.admin:
     description: Claim-Admin-Befehle (/claimadmin).
@@ -377,6 +392,7 @@ permissions:
       cpsmp.portal.bypass: true
       cpsmp.ah.admin: true
       cpsmp.claim.admin: true
+      cpsmp.claim.flags.admin: true
       cpsmp.claim.bypass: true
       cpsmp.claim.teleport.admin: true
   cpsmp.reload:

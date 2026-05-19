@@ -59,6 +59,7 @@ public final class ClaimShowExecutor {
             case SHOWN -> plugin.getMessageManager().sendPrefixed(player, "claim.show-enabled");
             case HIDDEN -> plugin.getMessageManager().sendPrefixed(player, "claim.show-disabled");
             case NOT_IN_CLAIM -> plugin.getMessageManager().sendPrefixed(player, "claim.show-not-in-claim");
+            case BORDER_DENIED -> plugin.getMessageManager().sendPrefixed(player, "claim.flags-border-denied");
         }
     }
 }

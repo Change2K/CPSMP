@@ -24,6 +24,11 @@ public final class ClaimCommand implements CommandExecutor {
             plugin.getMessageManager().sendPrefixed(sender, "general.player-only");
             return true;
         }
+        if (args.length >= 1 && "flags".equalsIgnoreCase(args[0])) {
+            String[] flagArgs = args.length > 1 ? java.util.Arrays.copyOfRange(args, 1, args.length) : new String[0];
+            ClaimFlagsCommand.runFlagsSubcommand(player, plugin, flagArgs);
+            return true;
+        }
         if (args.length > 0 && "show".equalsIgnoreCase(args[0])) {
             if (args.length >= 2 && !"toggle".equalsIgnoreCase(args[1])) {
                 plugin.getMessageManager().sendPrefixed(player, "claim.show-usage-claim");

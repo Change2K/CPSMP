@@ -3,6 +3,7 @@ package de.deinserver.cpsmp.claims.gui;
 import de.deinserver.cpsmp.CPSMPPlugin;
 import de.deinserver.cpsmp.claims.Claim;
 import de.deinserver.cpsmp.claims.ClaimConfig;
+import de.deinserver.cpsmp.claims.ClaimFlag;
 import de.deinserver.cpsmp.claims.ClaimManager;
 import de.deinserver.cpsmp.claims.ClaimPermission;
 import de.deinserver.cpsmp.claims.ClaimVisualService;
@@ -39,6 +40,12 @@ public final class ClaimGuiManager {
 
     private static final int DETAIL_SIZE = 27;
     private static final int DEL_SIZE = 27;
+    private static final int FLAGS_SIZE = 54;
+    private static final int FLAGS_BACK_SLOT = 49;
+    private static final int[] FLAG_SLOTS = {
+            10, 11, 12, 13, 14, 15, 16,
+            19, 20, 21, 22, 23
+    };
 
     private final CPSMPPlugin plugin;
     private final ClaimManager claims;
@@ -164,8 +171,50 @@ public final class ClaimGuiManager {
                 && claims.getConfig().getAntiEncasement().claimExit().enabled()) {
             inv.setItem(20, items.btnClaimExit(claimId));
         }
+        if (claims.getConfig().getFlags().enabled()
+                && (player.hasPermission(ClaimPermission.FLAGS) || player.hasPermission(ClaimPermission.FLAGS_ADMIN))) {
+            inv.setItem(24, items.btnFlags(claimId));
+        }
         inv.setItem(22, items.btnBack());
         session.attachInventory(inv);
+        player.openInventory(inv);
+    }
+
+    public void openFlags(@NotNull Player player, long claimId) {
+        Claim c = claims.getCache().byId(claimId);
+        if (c == null) {
+            plugin.getMessageManager().sendPrefixed(player, "claim.flags-not-found");
+            return;
+        }
+        if (!claims.canEditFlags(player, c)) {
+            plugin.getMessageManager().sendPrefixed(player, "claim.flags-not-owner");
+            return;
+        }
+        if (!claims.getConfig().getFlags().enabled()) {
+            plugin.getMessageManager().sendPrefixed(player, "claim.disabled");
+            return;
+        }
+        ClaimGuiSession session = sessions.computeIfAbsent(player.getUniqueId(), ClaimGuiSession::new);
+        session.setScreen(ClaimGuiSession.Screen.FLAGS);
+        session.setFlagsClaimId(claimId);
+        paintFlags(player, session, c);
+    }
+
+    private void paintFlags(@NotNull Player player, @NotNull ClaimGuiSession session, @NotNull Claim claim) {
+        Inventory inv = createInv(session, FLAGS_SIZE, "claim.flags-title");
+        session.attachInventory(inv);
+        ItemStack fill = items.filler();
+        for (int i = 0; i < FLAGS_SIZE; i++) {
+            inv.setItem(i, fill.clone());
+        }
+        ClaimFlag[] allFlags = ClaimFlag.values();
+        for (int i = 0; i < allFlags.length && i < FLAG_SLOTS.length; i++) {
+            ClaimFlag flag = allFlags[i];
+            boolean value = claims.flagEnabled(claim, flag);
+            boolean editable = claims.getFlagService().playerMayEditFlag(player, claim, flag);
+            inv.setItem(FLAG_SLOTS[i], items.flagToggleItem(claim.id(), flag, value, editable));
+        }
+        inv.setItem(FLAGS_BACK_SLOT, items.flagsBackButton());
         player.openInventory(inv);
     }
 
@@ -220,6 +269,7 @@ public final class ClaimGuiManager {
             case LIST -> handleListClick(player, session, kind, stack, slot, click);
             case DETAILS -> handleDetailClick(player, session, kind, stack, click);
             case DELETE_CONFIRM -> handleDelClick(player, session, kind, stack, click);
+            case FLAGS -> handleFlagsClick(player, session, kind, stack, click);
         }
     }
 
@@ -293,10 +343,56 @@ public final class ClaimGuiManager {
                     claims.getClaimExit().requestExit(player);
                 }
             }
+            case BTN_FLAGS -> {
+                if (claimId >= 0) {
+                    openFlags(player, claimId);
+                }
+            }
             case BTN_BACK -> openMain(player);
             default -> {
             }
         }
+    }
+
+    private void handleFlagsClick(@NotNull Player player, @NotNull ClaimGuiSession session,
+                                  @Nullable ClaimGuiKeys.Kind kind, @Nullable ItemStack stack,
+                                  @NotNull ClickType click) {
+        if (click != ClickType.LEFT && click != ClickType.RIGHT) {
+            return;
+        }
+        long claimId = session.flagsClaimId();
+        if (kind == ClaimGuiKeys.Kind.FLAGS_BACK) {
+            if (claimId >= 0) {
+                openDetails(player, claimId);
+            } else {
+                openMain(player);
+            }
+            return;
+        }
+        if (kind != ClaimGuiKeys.Kind.FLAG_TOGGLE || stack == null) {
+            return;
+        }
+        ClaimFlag flag = ClaimGuiKeys.readFlag(stack);
+        if (flag == null) {
+            return;
+        }
+        long stackClaimId = ClaimGuiKeys.readClaimId(stack);
+        if (stackClaimId != claimId || claimId < 0) {
+            return;
+        }
+        Claim claim = claims.getCache().byId(claimId);
+        if (claim == null) {
+            plugin.getMessageManager().sendPrefixed(player, "claim.flags-not-found");
+            openMain(player);
+            return;
+        }
+        claims.getFlagService().toggleFlag(player, claimId, flag, () -> {
+            plugin.getMessageManager().sendActionBar(player, "claim.flags-updated");
+            Claim refreshed = claims.getCache().byId(claimId);
+            if (refreshed != null) {
+                paintFlags(player, session, refreshed);
+            }
+        });
     }
 
     private void handleDelClick(Player player, ClaimGuiSession session, ClaimGuiKeys.Kind kind,
@@ -342,6 +438,7 @@ public final class ClaimGuiManager {
             case HIDDEN -> plugin.getMessageManager().sendPrefixed(player, "claim.show-disabled");
             case NOT_FOUND -> plugin.getMessageManager().sendPrefixed(player, "claim.gui-claim-not-found");
             case WRONG_WORLD -> plugin.getMessageManager().sendPrefixed(player, "claim.gui-border-wrong-world");
+            case BORDER_DENIED -> plugin.getMessageManager().sendPrefixed(player, "claim.flags-border-denied");
         }
     }
 }

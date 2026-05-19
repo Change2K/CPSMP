@@ -25,6 +25,8 @@ public final class ClaimPermission {
     public static final String CLAIM_MERGE = "cpsmp.claim.merge";
     /** Safe exit from own/trusted claim ({@code /claimexit}). */
     public static final String CLAIM_EXIT = "cpsmp.claim.exit";
+    public static final String FLAGS = "cpsmp.claim.flags";
+    public static final String FLAGS_ADMIN = "cpsmp.claim.flags.admin";
 
     private ClaimPermission() {
     }

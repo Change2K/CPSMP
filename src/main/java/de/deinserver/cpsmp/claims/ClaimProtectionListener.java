@@ -21,6 +21,7 @@ import org.bukkit.event.block.BlockExplodeEvent;
 import org.bukkit.event.block.BlockFromToEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.block.BlockSpreadEvent;
+import org.bukkit.event.entity.CreatureSpawnEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityExplodeEvent;
 import org.bukkit.event.hanging.HangingBreakByEntityEvent;
@@ -211,6 +212,26 @@ public final class ClaimProtectionListener implements Listener {
         }
         event.setCancelled(true);
         plugin.getMessageManager().sendPrefixed(player, "claim.protection-deny-entity");
+    }
+
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onMobSpawn(CreatureSpawnEvent event) {
+        if (!claims.isOperational()) {
+            return;
+        }
+        if (!isNaturalMobSpawn(event.getSpawnReason())) {
+            return;
+        }
+        if (claims.shouldCancelNaturalMobSpawn(event.getLocation())) {
+            event.setCancelled(true);
+        }
+    }
+
+    private static boolean isNaturalMobSpawn(CreatureSpawnEvent.SpawnReason reason) {
+        return switch (reason) {
+            case NATURAL, PATROL, RAID, REINFORCEMENTS, VILLAGE_DEFENSE, VILLAGE_INVASION -> true;
+            default -> false;
+        };
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)

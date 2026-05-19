@@ -80,6 +80,17 @@ Confirm `/spawn` is **not** registered by CPSMP (by design).
 - **Per-player claim numbers**: after **`claims.backup-before-owner-claim-number-migration.db`**, existing rows get `owner_claim_number` (1..n per owner). `/claims` GUI and chat list use **#1, #2**, not global SQLite IDs.
 - **Migration test**: upgrade from a pre–V4.0.1 `claims.db` without `owner_claim_number`; verify backup file exists, numbers stable across restart, `/claimadmin delete <player> <n>` targets the correct polygon.
 - **Claim entry display (V4.0.5)**: walk into a claim → title **Privates Gebiet** + subtitle **Claim von {owner}** (~4s, `fade-in` 5 / `stay` 80 / `fade-out` 10 ticks). Walk inside same claim → **no repeat**. Leave and re-enter → shows again. Walk claim A → claim B → new owner subtitle. `claim-entry-display.show-to-owner/trusted/visitors` toggles audience. Reload → no duplicate listeners/titles.
+- **Claim flags (V4.1)**:
+  - `/claimflags`, `/cpclaimflags`, `/claim flags`, `/plot flags` open the flags GUI for the claim underfoot (or `/claimflags <Claim-Nr.>` for an owned claim).
+  - Claims GUI → Details → **Flags** button (slot 24): toggle flags; locked flags show red lore; storage errors do not update cache.
+  - **PvP** `false`: cancel player-vs-player damage inside the claim (bypass still works).
+  - **Mob damage** `false`: visitors cannot hurt mobs/entities; owner/trusted/bypass can.
+  - **Mob spawning** `false`: cancel natural/patrol/raid spawns inside the claim.
+  - **Container/door/redstone** `false` with global protection on: visitors blocked; `true` allows visitors when global protection is on.
+  - **Entry display** `false`: no enter title for that claim.
+  - **Border display** `false`: visitors cannot `/plot show` or GUI border; owner/admin still can.
+  - `/claimadmin flags <Spieler> <Claim-Nr.>` (admin).
+  - Toggle a flag → `/cpsmpadmin reload` or restart → value persists. Delete claim → flags removed (FK cascade).
 - **Anti-encasement (V4.0.3)**: untrusted player cannot place blocks/liquids within **`direct-edge.radius-blocks`** outside a foreign claim (`claim.anti-edge-*`). Larger rings blocked when **access-integrity** would drop open exits below `required-open-exits` (`claim.access-*`). **Owner** building castles/walls **inside** own claim: allowed. **Trusted** inside trusted claim: allowed. **Bypass** (`cpsmp.claim.bypass` / OP): allowed. Obsidian/lava/piston encase tests; normal nearby builds that leave ≥2 exit sectors: allowed. Performance: bounded BFS (`max-nodes-per-check`, `max-claims-checked-per-event`).
 - **`/claimexit` / `/cpclaimexit`** (`cpsmp.claim.exit`): inside own claim (or trusted if enabled) → safe teleport outside after delay; messages `claim.exit-*`; GUI **Claim verlassen** in details (slot 20).
 - **V4.0.2 spot checks**: display border + merge/delete/reload cleanup; admin TP; 4 claims / 3 homes defaults.

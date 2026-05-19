@@ -80,6 +80,7 @@ public final class ClaimConfig {
     private final long bypassActionBarCooldownMs;
     private final ClaimAntiEncasementConfig antiEncasement;
     private final ClaimEntryDisplayConfig entryDisplay;
+    private final ClaimFlagsConfig flags;
 
     public ClaimConfig(FileConfiguration file) {
         ConfigurationSection root = file.getConfigurationSection("claims");
@@ -147,6 +148,7 @@ public final class ClaimConfig {
             this.bypassActionBarCooldownMs = 2500;
             this.antiEncasement = new ClaimAntiEncasementConfig(null);
             this.entryDisplay = new ClaimEntryDisplayConfig(null);
+            this.flags = new ClaimFlagsConfig(null);
             return;
         }
 
@@ -272,6 +274,7 @@ public final class ClaimConfig {
 
         this.antiEncasement = new ClaimAntiEncasementConfig(root.getConfigurationSection("anti-encasement"));
         this.entryDisplay = new ClaimEntryDisplayConfig(root.getConfigurationSection("claim-entry-display"));
+        this.flags = new ClaimFlagsConfig(root.getConfigurationSection("flags"));
     }
 
     private static Set<String> lowerSet(List<String> in) {
@@ -406,6 +409,10 @@ public final class ClaimConfig {
 
     public ClaimEntryDisplayConfig getEntryDisplay() {
         return entryDisplay;
+    }
+
+    public ClaimFlagsConfig getFlags() {
+        return flags;
     }
 
     public int getMinSizeX() {

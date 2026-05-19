@@ -10,6 +10,7 @@ import org.bukkit.block.Block;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.event.HandlerList;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.File;
@@ -37,6 +38,7 @@ public final class ClaimManager {
     private final ClaimVisualService visuals;
     private final ClaimAntiEncasementService antiEncasement;
     private final ClaimExitService claimExit;
+    private final ClaimFlagService flagService;
     private @Nullable SQLiteClaimStorage storage;
     private @Nullable ExecutorService dbExecutor;
     private boolean storageReady;
@@ -57,6 +59,7 @@ public final class ClaimManager {
         this.visuals = new ClaimVisualService(plugin, this);
         this.antiEncasement = new ClaimAntiEncasementService(plugin, this);
         this.claimExit = new ClaimExitService(plugin, this);
+        this.flagService = new ClaimFlagService(plugin, this);
         this.config = new ClaimConfig(plugin.getConfigManager().getClaims());
         Bukkit.getPluginManager().registerEvents(new ClaimVisualQuitListener(visuals), plugin);
     }
@@ -77,8 +80,20 @@ public final class ClaimManager {
         return claimExit;
     }
 
+    public ClaimFlagService getFlagService() {
+        return flagService;
+    }
+
     public ClaimCache getCache() {
         return cache;
+    }
+
+    @Nullable ClaimStorage getStorage() {
+        return storage;
+    }
+
+    @Nullable ExecutorService getDbExecutor() {
+        return dbExecutor;
     }
 
     public boolean isStorageReady() {
@@ -223,7 +238,9 @@ public final class ClaimManager {
             try {
                 List<Claim> all = st.loadAllClaims();
                 Map<Long, Set<UUID>> trust = st.loadAllTrustUuids();
-                Bukkit.getScheduler().runTask(plugin, () -> cache.rebuild(all, trust));
+                Map<Long, java.util.EnumMap<ClaimFlag, Boolean>> flags = ClaimFlagService.parseAllFlagsFromDb(
+                        st.loadAllFlags());
+                Bukkit.getScheduler().runTask(plugin, () -> cache.rebuild(all, trust, flags));
             } catch (Exception e) {
                 plugin.getLogger().warning("[CPSMP] Claims cache: " + e.getMessage());
             }
@@ -383,7 +400,60 @@ public final class ClaimManager {
         if (canBuild(player, claim)) {
             return false;
         }
+        ClaimFlag flag = switch (kind) {
+            case CONTAINER -> ClaimFlag.CONTAINER_ACCESS;
+            case DOOR -> ClaimFlag.DOOR_ACCESS;
+            case REDSTONE -> ClaimFlag.REDSTONE_ACCESS;
+            case GENERIC -> null;
+        };
+        if (flag != null && config.getFlags().enabled() && flagService.flagEnabled(claim, flag)) {
+            return false;
+        }
         return true;
+    }
+
+    public boolean flagEnabled(@NotNull Claim claim, @NotNull ClaimFlag flag) {
+        return flagService.flagEnabled(claim, flag);
+    }
+
+    public boolean canEditFlags(@NotNull Player player, @NotNull Claim claim) {
+        return flagService.canEditFlags(player, claim);
+    }
+
+    public boolean canShowBorderFor(@NotNull Player player, @NotNull Claim claim) {
+        if (claim.ownerUuid().equals(player.getUniqueId())) {
+            return true;
+        }
+        if (player.hasPermission(ClaimPermission.ADMIN)) {
+            return true;
+        }
+        if (!config.getFlags().enabled()) {
+            return true;
+        }
+        return flagService.flagEnabled(claim, ClaimFlag.BORDER_DISPLAY);
+    }
+
+    public boolean shouldDenyPvP(@NotNull Player attacker, @NotNull Player victim, @NotNull Claim claim) {
+        if (!config.getFlags().enabled()) {
+            return false;
+        }
+        if (ClaimPermission.hasBypass(attacker)) {
+            return false;
+        }
+        return !flagService.flagEnabled(claim, ClaimFlag.PVP);
+    }
+
+    public boolean shouldDenyVisitorMobDamage(@NotNull Player attacker, @NotNull Claim claim) {
+        if (!config.isProtectEntityDamage()) {
+            return false;
+        }
+        if (canBuild(attacker, claim)) {
+            return false;
+        }
+        if (!config.getFlags().enabled()) {
+            return true;
+        }
+        return !flagService.flagEnabled(claim, ClaimFlag.MOB_DAMAGE);
     }
 
     public enum InteractionKind {
@@ -399,7 +469,13 @@ public final class ClaimManager {
         }
         blocks.removeIf(b -> {
             Claim c = claimAt(b.getLocation());
-            return c != null;
+            if (c == null) {
+                return false;
+            }
+            if (!config.getFlags().enabled()) {
+                return true;
+            }
+            return !flagService.flagEnabled(c, ClaimFlag.EXPLOSIONS);
         });
     }
 
@@ -409,6 +485,9 @@ public final class ClaimManager {
         }
         Claim cTo = claimAt(toBlock.getLocation());
         if (cTo == null) {
+            return false;
+        }
+        if (config.getFlags().enabled() && flagService.flagEnabled(cTo, ClaimFlag.FIRE_SPREAD)) {
             return false;
         }
         if (fromBlock == null) {
@@ -426,8 +505,22 @@ public final class ClaimManager {
         if (cTo == null) {
             return false;
         }
+        if (config.getFlags().enabled() && flagService.flagEnabled(cTo, ClaimFlag.LIQUID_FLOW)) {
+            return false;
+        }
         Claim cFrom = claimAt(from.getLocation());
         return cFrom == null || cFrom.id() != cTo.id();
+    }
+
+    public boolean shouldCancelNaturalMobSpawn(@NotNull Location loc) {
+        if (!isOperational() || !config.getFlags().enabled()) {
+            return false;
+        }
+        Claim c = claimAt(loc);
+        if (c == null) {
+            return false;
+        }
+        return !flagService.flagEnabled(c, ClaimFlag.MOB_SPAWNING);
     }
 
     public boolean denyBucket(Player player, Location targetBlock) {

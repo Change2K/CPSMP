@@ -5,6 +5,7 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.Plugin;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -20,6 +21,8 @@ public final class ClaimGuiKeys {
     private static NamespacedKey claimIdKey;
     @Nullable
     private static NamespacedKey kindKey;
+    @Nullable
+    private static NamespacedKey flagKeyKey;
 
     public enum Kind {
         FILLER,
@@ -33,7 +36,10 @@ public final class ClaimGuiKeys {
         DEL_CANCEL,
         EMPTY_STATE,
         BTN_MERGE_CLAIMS,
-        BTN_CLAIM_EXIT
+        BTN_CLAIM_EXIT,
+        BTN_FLAGS,
+        FLAG_TOGGLE,
+        FLAGS_BACK
     }
 
     private ClaimGuiKeys() {
@@ -43,10 +49,11 @@ public final class ClaimGuiKeys {
         guiKey = new NamespacedKey(plugin, "claim_gui_item");
         claimIdKey = new NamespacedKey(plugin, "claim_gui_claim_id");
         kindKey = new NamespacedKey(plugin, "claim_gui_kind");
+        flagKeyKey = new NamespacedKey(plugin, "claim_gui_flag_key");
     }
 
     public static boolean hasInitialized() {
-        return guiKey != null && claimIdKey != null && kindKey != null;
+        return guiKey != null && claimIdKey != null && kindKey != null && flagKeyKey != null;
     }
 
     public static void markGuiItem(ItemStack stack) {
@@ -125,5 +132,31 @@ public final class ClaimGuiKeys {
         }
         Long v = stack.getItemMeta().getPersistentDataContainer().get(claimIdKey, PersistentDataType.LONG);
         return v != null ? v : -1L;
+    }
+
+    public static void tagFlagToggle(@NotNull ItemStack stack, long claimId, @NotNull de.deinserver.cpsmp.claims.ClaimFlag flag) {
+        tagKind(stack, Kind.FLAG_TOGGLE);
+        if (claimIdKey == null || flagKeyKey == null || stack.getItemMeta() == null) {
+            return;
+        }
+        ItemMeta meta = stack.getItemMeta();
+        meta.getPersistentDataContainer().set(claimIdKey, PersistentDataType.LONG, claimId);
+        meta.getPersistentDataContainer().set(flagKeyKey, PersistentDataType.STRING, flag.configKey());
+        stack.setItemMeta(meta);
+    }
+
+    public static @Nullable de.deinserver.cpsmp.claims.ClaimFlag readFlag(@Nullable ItemStack stack) {
+        if (flagKeyKey == null || stack == null || stack.getItemMeta() == null) {
+            return null;
+        }
+        String key = stack.getItemMeta().getPersistentDataContainer().get(flagKeyKey, PersistentDataType.STRING);
+        if (key == null || key.isBlank()) {
+            return null;
+        }
+        try {
+            return de.deinserver.cpsmp.claims.ClaimFlag.byConfigKey(key);
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
     }
 }

@@ -64,6 +64,17 @@ public final class SQLiteClaimStorage implements ClaimStorage {
             CREATE UNIQUE INDEX IF NOT EXISTS idx_claims_owner_ocn ON claims(owner_uuid, owner_claim_number)
             """;
 
+    private static final String CREATE_FLAGS = """
+            CREATE TABLE IF NOT EXISTS claim_flags (
+                claim_id    INTEGER NOT NULL,
+                flag_key    TEXT    NOT NULL,
+                flag_value  TEXT    NOT NULL,
+                updated_at  INTEGER NOT NULL,
+                PRIMARY KEY (claim_id, flag_key),
+                FOREIGN KEY (claim_id) REFERENCES claims(claim_id) ON DELETE CASCADE
+            )
+            """;
+
     private final File dbFile;
     private final Logger logger;
     private Connection connection;
@@ -90,6 +101,7 @@ public final class SQLiteClaimStorage implements ClaimStorage {
                 st.execute("PRAGMA foreign_keys=ON");
                 st.execute(CREATE_CLAIMS);
                 st.execute(CREATE_TRUST);
+                st.execute(CREATE_FLAGS);
                 st.execute(IDX_WORLD);
                 st.execute(IDX_OWNER);
             }
@@ -497,6 +509,77 @@ public final class SQLiteClaimStorage implements ClaimStorage {
             throw new ClaimStorageException("SQLite not open");
         }
         return connection;
+    }
+
+    @Override
+    public Map<Long, Map<String, String>> loadAllFlags() throws ClaimStorageException {
+        String sql = "SELECT claim_id, flag_key, flag_value FROM claim_flags";
+        Map<Long, Map<String, String>> out = new HashMap<>();
+        Connection con = requireConnection();
+        try (PreparedStatement ps = con.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                long claimId = rs.getLong("claim_id");
+                String key = rs.getString("flag_key");
+                String value = rs.getString("flag_value");
+                out.computeIfAbsent(claimId, k -> new HashMap<>()).put(key, value);
+            }
+            return out;
+        } catch (SQLException e) {
+            throw new ClaimStorageException(e.getMessage(), e);
+        }
+    }
+
+    @Override
+    public Map<String, String> loadFlags(long claimId) throws ClaimStorageException {
+        String sql = "SELECT flag_key, flag_value FROM claim_flags WHERE claim_id = ?";
+        Map<String, String> out = new HashMap<>();
+        Connection con = requireConnection();
+        try (PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setLong(1, claimId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    out.put(rs.getString("flag_key"), rs.getString("flag_value"));
+                }
+            }
+            return out;
+        } catch (SQLException e) {
+            throw new ClaimStorageException(e.getMessage(), e);
+        }
+    }
+
+    @Override
+    public void setFlag(long claimId, String key, String value, long now) throws ClaimStorageException {
+        String sql = """
+                INSERT INTO claim_flags (claim_id, flag_key, flag_value, updated_at)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT(claim_id, flag_key) DO UPDATE SET
+                    flag_value = excluded.flag_value,
+                    updated_at = excluded.updated_at
+                """;
+        Connection con = requireConnection();
+        try (PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setLong(1, claimId);
+            ps.setString(2, key);
+            ps.setString(3, value);
+            ps.setLong(4, now);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            throw new ClaimStorageException(e.getMessage(), e);
+        }
+    }
+
+    @Override
+    public void deleteFlag(long claimId, String key) throws ClaimStorageException {
+        String sql = "DELETE FROM claim_flags WHERE claim_id = ? AND flag_key = ?";
+        Connection con = requireConnection();
+        try (PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setLong(1, claimId);
+            ps.setString(2, key);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            throw new ClaimStorageException(e.getMessage(), e);
+        }
     }
 
     private static Claim readClaim(ResultSet rs) throws SQLException {
