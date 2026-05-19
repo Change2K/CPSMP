@@ -160,6 +160,10 @@ public final class ClaimGuiManager {
         inv.setItem(13, items.detailsInfo(c, ownerName, trust.size(), tlist));
         inv.setItem(11, items.btnShowBorder(claimId));
         inv.setItem(15, items.btnDelete(claimId));
+        if (player.hasPermission(ClaimPermission.CLAIM_EXIT)
+                && claims.getConfig().getAntiEncasement().claimExit().enabled()) {
+            inv.setItem(20, items.btnClaimExit(claimId));
+        }
         inv.setItem(22, items.btnBack());
         session.attachInventory(inv);
         player.openInventory(inv);
@@ -282,6 +286,11 @@ public final class ClaimGuiManager {
             case BTN_OPEN_DELETE -> {
                 if (claimId >= 0) {
                     openDeleteConfirm(player, claimId);
+                }
+            }
+            case BTN_CLAIM_EXIT -> {
+                if (claimId >= 0) {
+                    claims.getClaimExit().requestExit(player);
                 }
             }
             case BTN_BACK -> openMain(player);

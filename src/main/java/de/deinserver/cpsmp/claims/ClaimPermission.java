@@ -23,6 +23,8 @@ public final class ClaimPermission {
     /** Optional: teleport to another player's claim without full claim admin. */
     public static final String CLAIM_TELEPORT_ADMIN = "cpsmp.claim.teleport.admin";
     public static final String CLAIM_MERGE = "cpsmp.claim.merge";
+    /** Safe exit from own/trusted claim ({@code /claimexit}). */
+    public static final String CLAIM_EXIT = "cpsmp.claim.exit";
 
     private ClaimPermission() {
     }

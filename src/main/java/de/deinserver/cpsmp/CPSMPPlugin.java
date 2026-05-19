@@ -24,6 +24,7 @@ import de.deinserver.cpsmp.teleport.TpaCommand;
 import de.deinserver.cpsmp.claims.AbandonClaimCommand;
 import de.deinserver.cpsmp.claims.ClaimAdminCommand;
 import de.deinserver.cpsmp.claims.ClaimCommand;
+import de.deinserver.cpsmp.claims.ClaimExitCommand;
 import de.deinserver.cpsmp.claims.ClaimCommandTabCompleter;
 import de.deinserver.cpsmp.claims.ClaimInfoCommand;
 import de.deinserver.cpsmp.claims.ClaimManager;
@@ -201,6 +202,9 @@ public final class CPSMPPlugin extends JavaPlugin {
         AbandonClaimCommand abandon = new AbandonClaimCommand(this);
         registerExecutorAndTab("abandonclaim", abandon, claimsTab);
         registerExecutorAndTab("cpabandonclaim", abandon, claimsTab);
+        ClaimExitCommand claimExitCmd = new ClaimExitCommand(this);
+        registerExecutorAndTab("claimexit", claimExitCmd, claimsTab);
+        registerExecutorAndTab("cpclaimexit", claimExitCmd, claimsTab);
         PlotCommand plotCmd = new PlotCommand(this);
         registerExecutorAndTab("plot", plotCmd, claimsTab);
         registerExecutorAndTab("cpplot", plotCmd, claimsTab);

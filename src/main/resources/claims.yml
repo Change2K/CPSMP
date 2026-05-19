@@ -1,4 +1,4 @@
-# CPSMP V4.0.2 Claims / base protection (German messages in messages.yml).
+# CPSMP V4.0.3 Claims / base protection (German messages in messages.yml).
 
 claims:
   enabled: true
@@ -14,8 +14,13 @@ claims:
       - attack_zone
 
   creation:
-    default-radius-x: 8
-    default-radius-z: 8
+    # Exact default size (preferred). /claim creates default-size-x × default-size-z blocks.
+    # Even sizes (e.g. 24): centered on your standing block; one side has one fewer block (see ClaimCreationBounds).
+    default-size-x: 24
+    default-size-z: 24
+    # Legacy radius (used only if default-size-x/z are absent). radius 8 => 17×17 blocks.
+    # default-radius-x: 8
+    # default-radius-z: 8
     min-size-x: 5
     min-size-z: 5
     max-size-x: 64
@@ -46,47 +51,76 @@ claims:
     liquid-flow: true
     buckets: true
 
-  # Claim outline: default is BlockDisplay (display mode), non-blocking, no real blocks.
-  # WorldBorder mode (worldborder_if_safe) is NOT recommended: Paper/Bukkit applies a real
-  # per-player world border that can block movement. Enable only with allow-worldborder-mode: true.
-visuals:
-  enabled: true
-  mode: display
-  allow-worldborder-mode: false
-  fallback-mode: none
-  duration-seconds: 20
-  show-once-is-toggle: true
-  clear-on-world-change: true
-  refresh-interval-ticks: 20
-  show-radius-blocks: 15
-
-  display:
+  anti-encasement:
     enabled: true
-    material: LIGHT_BLUE_STAINED_GLASS
-    corner-material: GOLD_BLOCK
-    y-offsets:
-      - 0.1
-      - 1.1
-    line-step-blocks: 2
-    max-display-entities-per-player: 300
-    scale: 0.15
+    ignore-owner: true
+    ignore-trusted: true
+    ignore-admin-bypass: true
+    max-claims-checked-per-event: 5
+    direct-edge:
+      enabled: true
+      radius-blocks: 2
+      block-place: true
+      liquid-place: true
+      buckets: true
+      pistons: true
+      explosions: true
+    access-integrity:
+      enabled: true
+      scan-radius-blocks: 64
+      required-open-exits: 2
+      min-path-width-blocks: 2
+      min-path-height-blocks: 2
+      check-block-place: true
+      check-liquid-place: true
+      check-liquid-flow: true
+      check-pistons: true
+      check-explosions: true
+      require-check-near-claim-only: true
+      max-nodes-per-check: 12000
+      debug: false
+    claim-exit:
+      enabled: true
+      allow-trusted: true
+      teleport-delay-seconds: 3
+      search-radius-blocks: 12
 
-  particles:
-    enabled: false
-    enabled-as-fallback: false
-    static: true
-    particle: END_ROD
-    border-particle: END_ROD
-    color: "#f6d365"
-    secondary-color: "#fda085"
-    y-offsets:
-      - 0.2
-      - 1.2
-    line-step-blocks: 1
-    interval-ticks: 20
-    max-visible-particles-per-tick: 80
+  # Claim outline: default is BlockDisplay (display mode), non-blocking, no real blocks.
+  visuals:
+    enabled: true
+    mode: display
+    allow-worldborder-mode: false
+    fallback-mode: particles
+    duration-seconds: 20
+    show-once-is-toggle: true
+    clear-on-world-change: true
+    refresh-interval-ticks: 20
+    show-radius-blocks: 15
+    display:
+      enabled: true
+      material: LIGHT_BLUE_STAINED_GLASS
+      corner-material: GOLD_BLOCK
+      y-offsets:
+        - 0.1
+        - 1.1
+      line-step-blocks: 2
+      max-display-entities-per-player: 300
+      scale: 0.15
+    particles:
+      enabled: true
+      enabled-as-fallback: true
+      static: true
+      particle: END_ROD
+      border-particle: END_ROD
+      color: "#f6d365"
+      secondary-color: "#fda085"
+      y-offsets:
+        - 0.2
+        - 1.2
+      line-step-blocks: 1
+      interval-ticks: 20
+      max-visible-particles-per-tick: 80
 
-  # When false, /plot is rejected in-game; use /cpplot show or /claim show instead (PlotSquared-safe).
   plot-alias:
     enabled: true
 

@@ -113,6 +113,7 @@ public final class ClaimGuiItemFactory {
                     Map.of("w", Integer.toString(claim.widthBlocks()), "d", Integer.toString(claim.depthBlocks()))));
             lore.add(messages.component("claim.gui-details-trusted-line",
                     Map.of("n", Integer.toString(trustedCount), "list", trustedList)));
+            lore.add(messages.component("claim.gui-details-exit-hint"));
             lore.add(Component.empty());
             meta.lore(lore.stream().map(c -> c.decoration(TextDecoration.ITALIC, NO_ITALIC)).toList());
             stack.setItemMeta(meta);
@@ -139,6 +140,18 @@ public final class ClaimGuiItemFactory {
             meta.displayName(messages.component("claim.gui-btn-delete").decoration(TextDecoration.ITALIC, NO_ITALIC));
             stack.setItemMeta(meta);
             ClaimGuiKeys.tagClaimButton(stack, ClaimGuiKeys.Kind.BTN_OPEN_DELETE, claimId);
+        }
+        return stack;
+    }
+
+    public ItemStack btnClaimExit(long claimId) {
+        ItemStack stack = new ItemStack(Material.ENDER_PEARL);
+        ItemMeta meta = stack.getItemMeta();
+        if (meta != null) {
+            meta.displayName(messages.component("claim.gui-btn-exit").decoration(TextDecoration.ITALIC, NO_ITALIC));
+            meta.lore(List.of(messages.component("claim.gui-btn-exit-lore").decoration(TextDecoration.ITALIC, NO_ITALIC)));
+            stack.setItemMeta(meta);
+            ClaimGuiKeys.tagClaimButton(stack, ClaimGuiKeys.Kind.BTN_CLAIM_EXIT, claimId);
         }
         return stack;
     }

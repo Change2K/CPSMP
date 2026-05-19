@@ -7,7 +7,7 @@ main: de.deinserver.cpsmp.CPSMPPlugin
 # re-test. See COMPATIBILITY.md.
 api-version: '1.21'
 author: deinserver
-description: Premium SMP foundation plugin (V4.0.2).
+description: Premium SMP foundation plugin (V4.0.3).
 load: POSTWORLD
 
 # Paper runtime library loading. CPSMP uses SQLite for the Auction House,
@@ -189,6 +189,14 @@ commands:
     description: CPSMP-Alias fuer /abandonclaim.
     usage: /cpabandonclaim
     permission: cpsmp.claim.abandon
+  claimexit:
+    description: Sicherer Ausgang aus dem eigenen Claim.
+    usage: /claimexit
+    permission: cpsmp.claim.exit
+  cpclaimexit:
+    description: CPSMP-Alias fuer /claimexit.
+    usage: /cpclaimexit
+    permission: cpsmp.claim.exit
   claimadmin:
     description: CPSMP Claim-Administration.
     usage: /claimadmin <info <Spieler>|delete <Spieler> <Claim>|deleteglobal <id>|reload>
@@ -285,6 +293,9 @@ permissions:
     default: op
   cpsmp.claim.merge:
     description: Erlaubt /merge all, /claim merge all und den Merge-Button in der Claims-GUI.
+    default: true
+  cpsmp.claim.exit:
+    description: Erlaubt /claimexit (sicherer Ausgang aus dem Claim).
     default: true
   cpsmp.claim.show:
     description: Erlaubt /claim show, /plot show (Claim-Grenze).

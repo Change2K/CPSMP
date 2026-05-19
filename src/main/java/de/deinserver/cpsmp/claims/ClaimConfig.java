@@ -21,6 +21,9 @@ public final class ClaimConfig {
     private final String storageFile;
     private final Set<String> worldsAllowedLower;
     private final Set<String> worldsBlockedLower;
+    private final boolean useExplicitDefaultSize;
+    private final int defaultSizeX;
+    private final int defaultSizeZ;
     private final int defaultRadiusX;
     private final int defaultRadiusZ;
     private final int minSizeX;
@@ -75,6 +78,7 @@ public final class ClaimConfig {
     private final boolean plotAliasEnabled;
     private final boolean bypassActionBar;
     private final long bypassActionBarCooldownMs;
+    private final ClaimAntiEncasementConfig antiEncasement;
 
     public ClaimConfig(FileConfiguration file) {
         ConfigurationSection root = file.getConfigurationSection("claims");
@@ -83,8 +87,11 @@ public final class ClaimConfig {
             this.storageFile = "claims.db";
             this.worldsAllowedLower = Set.of();
             this.worldsBlockedLower = Set.of();
-            this.defaultRadiusX = 8;
-            this.defaultRadiusZ = 8;
+            this.useExplicitDefaultSize = true;
+            this.defaultSizeX = 24;
+            this.defaultSizeZ = 24;
+            this.defaultRadiusX = 11;
+            this.defaultRadiusZ = 11;
             this.minSizeX = 5;
             this.minSizeZ = 5;
             this.maxSizeX = 64;
@@ -137,6 +144,7 @@ public final class ClaimConfig {
             this.plotAliasEnabled = true;
             this.bypassActionBar = true;
             this.bypassActionBarCooldownMs = 2500;
+            this.antiEncasement = new ClaimAntiEncasementConfig(null);
             return;
         }
 
@@ -149,8 +157,21 @@ public final class ClaimConfig {
         this.worldsBlockedLower = lowerSet(worlds != null ? worlds.getStringList("blocked") : List.of());
 
         ConfigurationSection creation = root.getConfigurationSection("creation");
-        this.defaultRadiusX = Math.max(0, creation != null ? creation.getInt("default-radius-x", 8) : 8);
-        this.defaultRadiusZ = Math.max(0, creation != null ? creation.getInt("default-radius-z", 8) : 8);
+        boolean hasExplicitSize = creation != null
+                && (creation.contains("default-size-x") || creation.contains("default-size-z"));
+        if (hasExplicitSize) {
+            this.useExplicitDefaultSize = true;
+            this.defaultSizeX = Math.max(1, creation.getInt("default-size-x", 24));
+            this.defaultSizeZ = Math.max(1, creation.getInt("default-size-z", 24));
+            this.defaultRadiusX = Math.max(0, (defaultSizeX - 1) / 2);
+            this.defaultRadiusZ = Math.max(0, (defaultSizeZ - 1) / 2);
+        } else {
+            this.useExplicitDefaultSize = false;
+            this.defaultRadiusX = Math.max(0, creation != null ? creation.getInt("default-radius-x", 8) : 8);
+            this.defaultRadiusZ = Math.max(0, creation != null ? creation.getInt("default-radius-z", 8) : 8);
+            this.defaultSizeX = defaultRadiusX * 2 + 1;
+            this.defaultSizeZ = defaultRadiusZ * 2 + 1;
+        }
         this.minSizeX = Math.max(1, creation != null ? creation.getInt("min-size-x", 5) : 5);
         this.minSizeZ = Math.max(1, creation != null ? creation.getInt("min-size-z", 5) : 5);
         this.maxSizeX = Math.max(1, creation != null ? creation.getInt("max-size-x", 64) : 64);
@@ -246,6 +267,8 @@ public final class ClaimConfig {
         ConfigurationSection admin = root.getConfigurationSection("admin");
         this.bypassActionBar = admin == null || admin.getBoolean("bypass-actionbar", true);
         this.bypassActionBarCooldownMs = Math.max(500, admin != null ? admin.getLong("bypass-actionbar-cooldown-ms", 2500) : 2500);
+
+        this.antiEncasement = new ClaimAntiEncasementConfig(root.getConfigurationSection("anti-encasement"));
     }
 
     private static Set<String> lowerSet(List<String> in) {
@@ -354,12 +377,28 @@ public final class ClaimConfig {
         return isWorldClaimable(player.getWorld().getName());
     }
 
+    public boolean isUseExplicitDefaultSize() {
+        return useExplicitDefaultSize;
+    }
+
+    public int getDefaultSizeX() {
+        return defaultSizeX;
+    }
+
+    public int getDefaultSizeZ() {
+        return defaultSizeZ;
+    }
+
     public int getDefaultRadiusX() {
         return defaultRadiusX;
     }
 
     public int getDefaultRadiusZ() {
         return defaultRadiusZ;
+    }
+
+    public ClaimAntiEncasementConfig getAntiEncasement() {
+        return antiEncasement;
     }
 
     public int getMinSizeX() {

@@ -32,7 +32,8 @@ public final class ClaimGuiKeys {
         DEL_CONFIRM,
         DEL_CANCEL,
         EMPTY_STATE,
-        BTN_MERGE_CLAIMS
+        BTN_MERGE_CLAIMS,
+        BTN_CLAIM_EXIT
     }
 
     private ClaimGuiKeys() {

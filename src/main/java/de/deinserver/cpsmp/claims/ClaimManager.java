@@ -35,10 +35,13 @@ public final class ClaimManager {
     private ClaimConfig config;
     private final ClaimCache cache = new ClaimCache();
     private final ClaimVisualService visuals;
+    private final ClaimAntiEncasementService antiEncasement;
+    private final ClaimExitService claimExit;
     private @Nullable SQLiteClaimStorage storage;
     private @Nullable ExecutorService dbExecutor;
     private boolean storageReady;
     private @Nullable ClaimProtectionListener protectionListener;
+    private @Nullable ClaimAntiEncasementListener antiEncasementListener;
     private final java.util.concurrent.ConcurrentHashMap<UUID, PendingAbandon> abandonPending
             = new java.util.concurrent.ConcurrentHashMap<>();
     private final java.util.concurrent.ConcurrentHashMap<UUID, Long> bypassActionbarAt
@@ -50,6 +53,8 @@ public final class ClaimManager {
     public ClaimManager(CPSMPPlugin plugin) {
         this.plugin = plugin;
         this.visuals = new ClaimVisualService(plugin, this);
+        this.antiEncasement = new ClaimAntiEncasementService(plugin, this);
+        this.claimExit = new ClaimExitService(plugin, this);
         this.config = new ClaimConfig(plugin.getConfigManager().getClaims());
         Bukkit.getPluginManager().registerEvents(new ClaimVisualQuitListener(visuals), plugin);
     }
@@ -60,6 +65,14 @@ public final class ClaimManager {
 
     public ClaimVisualService getVisuals() {
         return visuals;
+    }
+
+    public ClaimAntiEncasementService getAntiEncasement() {
+        return antiEncasement;
+    }
+
+    public ClaimExitService getClaimExit() {
+        return claimExit;
     }
 
     public ClaimCache getCache() {
@@ -83,10 +96,14 @@ public final class ClaimManager {
             plugin.getLogger().info("[CPSMP] Claims are disabled in claims.yml.");
             return;
         }
+        if (!config.isUseExplicitDefaultSize()) {
+            plugin.getLogger().info("[CPSMP] claims.yml: Nutze default-size-x/default-size-z (z. B. 24) statt default-radius-x/z fuer exakte Claim-Groessen.");
+        }
         if (!initSqlite()) {
             return;
         }
         registerProtectionListener();
+        registerAntiEncasementListener();
         reloadCacheFromDbAsync();
     }
 
@@ -127,10 +144,25 @@ public final class ClaimManager {
         Bukkit.getPluginManager().registerEvents(protectionListener, plugin);
     }
 
+    private void registerAntiEncasementListener() {
+        if (antiEncasementListener != null) {
+            return;
+        }
+        this.antiEncasementListener = new ClaimAntiEncasementListener(plugin, this, antiEncasement);
+        Bukkit.getPluginManager().registerEvents(antiEncasementListener, plugin);
+    }
+
     private void unregisterProtectionListener() {
         if (protectionListener != null) {
             HandlerList.unregisterAll(protectionListener);
             protectionListener = null;
+        }
+    }
+
+    private void unregisterAntiEncasementListener() {
+        if (antiEncasementListener != null) {
+            HandlerList.unregisterAll(antiEncasementListener);
+            antiEncasementListener = null;
         }
     }
 
@@ -140,6 +172,7 @@ public final class ClaimManager {
         this.config = new ClaimConfig(plugin.getConfigManager().getClaims());
         if (!config.isEnabled()) {
             unregisterProtectionListener();
+            unregisterAntiEncasementListener();
             clearAllClaimVisualsForOnlinePlayers();
             return;
         }
@@ -150,6 +183,7 @@ public final class ClaimManager {
             return;
         }
         registerProtectionListener();
+        registerAntiEncasementListener();
         reloadCacheFromDbAsync();
     }
 
@@ -174,6 +208,7 @@ public final class ClaimManager {
         visuals.cancelAll();
         abandonPending.clear();
         unregisterProtectionListener();
+        unregisterAntiEncasementListener();
         if (storage != null && dbExecutor != null) {
             ClaimStorage toClose = storage;
             storage = null;
@@ -398,14 +433,31 @@ public final class ClaimManager {
         int cx = player.getLocation().getBlockX();
         int cz = player.getLocation().getBlockZ();
         String world = player.getWorld().getName();
-        int rx = config.getDefaultRadiusX();
-        int rz = config.getDefaultRadiusZ();
-        int minX = cx - rx;
-        int maxX = cx + rx;
-        int minZ = cz - rz;
-        int maxZ = cz + rz;
-        int w = maxX - minX + 1;
-        int d = maxZ - minZ + 1;
+        final int minX;
+        final int maxX;
+        final int minZ;
+        final int maxZ;
+        final int w;
+        final int d;
+        if (config.isUseExplicitDefaultSize()) {
+            ClaimCreationBounds bounds = ClaimCreationBounds.fromCenter(cx, cz,
+                    config.getDefaultSizeX(), config.getDefaultSizeZ());
+            minX = bounds.minX();
+            maxX = bounds.maxX();
+            minZ = bounds.minZ();
+            maxZ = bounds.maxZ();
+            w = bounds.widthBlocks();
+            d = bounds.depthBlocks();
+        } else {
+            int rx = config.getDefaultRadiusX();
+            int rz = config.getDefaultRadiusZ();
+            minX = cx - rx;
+            maxX = cx + rx;
+            minZ = cz - rz;
+            maxZ = cz + rz;
+            w = maxX - minX + 1;
+            d = maxZ - minZ + 1;
+        }
         if (w < config.getMinSizeX() || d < config.getMinSizeZ()) {
             plugin.getMessageManager().sendPrefixed(player, "claim.too-small");
             return;

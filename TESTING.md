@@ -2,7 +2,7 @@
 
 Use this list before promoting a build to production. Player-facing strings are German (`messages.yml`); this document is English for operators.
 
-V3.0 adds **Homes**, **TPA**, optional **`/back`**, and `teleports.yml` (plus `teleports.db` when Homes or `/back` are enabled). V3.1 hardens those paths. **V4.0** adds **Claims** / base protection (`claims.yml`, `claims.db` SQLite). **V4.0.2** polishes static claim outlines, `/claim <player> <Claim>` admin teleport, **merge**, default limits (4 claims / 3 homes), and a merge button in the claims GUI. `/spawn` remains **unregistered** by CPSMP.
+V3.0 adds **Homes**, **TPA**, optional **`/back`**, and `teleports.yml` (plus `teleports.db` when Homes or `/back` are enabled). V3.1 hardens those paths. **V4.0** adds **Claims** / base protection (`claims.yml`, `claims.db` SQLite). **V4.0.2** polishes display claim outlines, admin claim TP, and merge. **V4.0.3** adds **anti-encasement** (direct edge + access integrity), **`/claimexit`**, and default **24×24** claims. `/spawn` remains **unregistered** by CPSMP.
 
 ## Local server setup
 
@@ -58,7 +58,7 @@ Confirm `/spawn` is **not** registered by CPSMP (by design).
 ## Claims / base protection (V4.0)
 
 - **World rules**: SMP (`smp`) allowed by default; `danger_zone` and `attack_zone` blocked in bundled `claims.yml` — adjust to your real world names.
-- **`/claim` / `/cpclaim`**: creates a centered claim; overlap → `claim.overlap`; wrong world → `claim.world-disabled`; at limit → `claim.limit-reached`. Default bundle: **4** claims for normal players (`claims.limits.default-claim-limit` + `cpsmp.claims.4` default true). OP / `cpsmp.claims.unlimited` bypass count limits.
+- **`/claim` / `/cpclaim`**: creates a centered claim; default **24×24** (`claims.creation.default-size-x/z: 24`). Even sizes: standing block is inside; one axis uses `center - half + 1` .. `center + half` (exactly 24 blocks, not 25). Legacy `default-radius-x/z` still works if size keys are absent (console migration hint). Overlap → `claim.overlap`; wrong world → `claim.world-disabled`; at limit → `claim.limit-reached`. Default bundle: **4** claims (`claims.limits.default-claim-limit`). Existing claims are **not** resized on upgrade.
 - **Admin teleport**: `/claim <Spieler> <Claim>` (visible number) with `cpsmp.claim.admin` **or** `cpsmp.claim.teleport.admin` — safe center teleport via chunk load + surface scan; `claim.admin-teleport-*` messages. Non-admins get `general.no-permission`.
 - **Merge**: `/merge all` or `/claim merge all` (permission `cpsmp.claim.merge`): stand inside **your** claim; merges the **connected component** of your claims in that world (edge/overlap; diagonal only if `claims.merge.allow-diagonal-touch`). Fails on foreign overlap, oversize vs `max-size-*`, or single-claim cluster (`claim.merge-not-enough`). Trust is unioned; lowest visible claim number kept; SQLite transaction rolls back on error.
 - **`/claims` GUI**: slot **49** — **Claims zusammenfuehren** runs the same merge logic; refreshes the list on success.
@@ -79,7 +79,9 @@ Confirm `/spawn` is **not** registered by CPSMP (by design).
 - **Messages migration**: first start on an old `messages.yml` without `meta.gui-style-version: 4` copies **`messages.backup-before-v4-visual-update.yml`** (same filename as prior migrations) and patches known GUI/title keys; console logs a German warning. **`/cpsmpadmin refreshmessages gui`** forces the same key set from the JAR default with a timestamped backup.
 - **Per-player claim numbers**: after **`claims.backup-before-owner-claim-number-migration.db`**, existing rows get `owner_claim_number` (1..n per owner). `/claims` GUI and chat list use **#1, #2**, not global SQLite IDs.
 - **Migration test**: upgrade from a pre–V4.0.1 `claims.db` without `owner_claim_number`; verify backup file exists, numbers stable across restart, `/claimadmin delete <player> <n>` targets the correct polygon.
-- **V4.0.2 spot checks**: display border persists with **minimal particles**; radius `show-radius-blocks`; `/plot show` toggle removes entities; no leftover BlockDisplays after **logout** / **reload**; `/merge all` + GUI merge with border on: safe cleanup + timed preview; delete claim with border on: clears; `/claim <player> <Claim>` admin TP; `/merge all` + GUI merge preserve trust and block foreign overlap; merged bounds persist after restart; new players get **4** claim slots and **3** home slots when creating **new** homes (existing rows over limit are not deleted).
+- **Anti-encasement (V4.0.3)**: untrusted player cannot place blocks/liquids within **`direct-edge.radius-blocks`** outside a foreign claim (`claim.anti-edge-*`). Larger rings blocked when **access-integrity** would drop open exits below `required-open-exits` (`claim.access-*`). **Owner** building castles/walls **inside** own claim: allowed. **Trusted** inside trusted claim: allowed. **Bypass** (`cpsmp.claim.bypass` / OP): allowed. Obsidian/lava/piston encase tests; normal nearby builds that leave ≥2 exit sectors: allowed. Performance: bounded BFS (`max-nodes-per-check`, `max-claims-checked-per-event`).
+- **`/claimexit` / `/cpclaimexit`** (`cpsmp.claim.exit`): inside own claim (or trusted if enabled) → safe teleport outside after delay; messages `claim.exit-*`; GUI **Claim verlassen** in details (slot 20).
+- **V4.0.2 spot checks**: display border + merge/delete/reload cleanup; admin TP; 4 claims / 3 homes defaults.
 - **Auction GUI titles**: inventory titles use high-contrast `<bold><gold>…` strings (`auction.gui.*-title`); verify readability against the vanilla chest background.
 
 ## Inventory transfer (V3.0)

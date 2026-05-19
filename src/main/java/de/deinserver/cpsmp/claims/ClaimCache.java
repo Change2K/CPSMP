@@ -12,6 +12,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Predicate;
 
 /**
  * Main-thread claim index: O(n) per world (typical n is small on SMP).
@@ -77,6 +78,35 @@ public final class ClaimCache {
         if (s != null) {
             s.remove(trusted);
         }
+    }
+
+    /**
+     * Claims in {@code worldName} whose bounds expanded by {@code expandBlocks} contain {@code blockX}/{@code blockZ}.
+     */
+    public synchronized List<Claim> listNear(String worldName, int blockX, int blockZ, int expandBlocks,
+                                             int maxResults, @Nullable Predicate<Claim> filter) {
+        if (worldName == null || maxResults <= 0) {
+            return List.of();
+        }
+        List<Claim> list = byWorld.get(worldName.toLowerCase(Locale.ROOT));
+        if (list == null || list.isEmpty()) {
+            return List.of();
+        }
+        List<Claim> out = new ArrayList<>();
+        for (Claim c : list) {
+            if (filter != null && !filter.test(c)) {
+                continue;
+            }
+            if (blockX < c.minX() - expandBlocks || blockX > c.maxX() + expandBlocks
+                    || blockZ < c.minZ() - expandBlocks || blockZ > c.maxZ() + expandBlocks) {
+                continue;
+            }
+            out.add(c);
+            if (out.size() >= maxResults) {
+                break;
+            }
+        }
+        return out;
     }
 
     public synchronized @Nullable Claim claimAt(String worldName, int blockX, int blockZ) {
