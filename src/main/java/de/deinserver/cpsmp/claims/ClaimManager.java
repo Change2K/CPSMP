@@ -42,6 +42,8 @@ public final class ClaimManager {
     private boolean storageReady;
     private @Nullable ClaimProtectionListener protectionListener;
     private @Nullable ClaimAntiEncasementListener antiEncasementListener;
+    private @Nullable ClaimEntryDisplayService entryDisplay;
+    private @Nullable ClaimEntryDisplayListener entryDisplayListener;
     private final java.util.concurrent.ConcurrentHashMap<UUID, PendingAbandon> abandonPending
             = new java.util.concurrent.ConcurrentHashMap<>();
     private final java.util.concurrent.ConcurrentHashMap<UUID, Long> bypassActionbarAt
@@ -104,6 +106,7 @@ public final class ClaimManager {
         }
         registerProtectionListener();
         registerAntiEncasementListener();
+        registerEntryDisplayListener();
         reloadCacheFromDbAsync();
     }
 
@@ -166,6 +169,27 @@ public final class ClaimManager {
         }
     }
 
+    private void registerEntryDisplayListener() {
+        unregisterEntryDisplayListener();
+        if (!config.getEntryDisplay().enabled()) {
+            return;
+        }
+        this.entryDisplay = new ClaimEntryDisplayService(plugin, this);
+        this.entryDisplayListener = new ClaimEntryDisplayListener(entryDisplay, this);
+        Bukkit.getPluginManager().registerEvents(entryDisplayListener, plugin);
+    }
+
+    private void unregisterEntryDisplayListener() {
+        if (entryDisplayListener != null) {
+            HandlerList.unregisterAll(entryDisplayListener);
+            entryDisplayListener = null;
+        }
+        if (entryDisplay != null) {
+            entryDisplay.clearAll();
+            entryDisplay = null;
+        }
+    }
+
     public void reload() {
         visuals.cancelAll();
         abandonPending.clear();
@@ -173,6 +197,7 @@ public final class ClaimManager {
         if (!config.isEnabled()) {
             unregisterProtectionListener();
             unregisterAntiEncasementListener();
+            unregisterEntryDisplayListener();
             clearAllClaimVisualsForOnlinePlayers();
             return;
         }
@@ -184,6 +209,7 @@ public final class ClaimManager {
         }
         registerProtectionListener();
         registerAntiEncasementListener();
+        registerEntryDisplayListener();
         reloadCacheFromDbAsync();
     }
 
@@ -209,6 +235,7 @@ public final class ClaimManager {
         abandonPending.clear();
         unregisterProtectionListener();
         unregisterAntiEncasementListener();
+        unregisterEntryDisplayListener();
         if (storage != null && dbExecutor != null) {
             ClaimStorage toClose = storage;
             storage = null;

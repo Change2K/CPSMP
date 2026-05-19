@@ -91,10 +91,22 @@ public final class MessageManager {
     }
 
     public void sendTitle(Audience target, String titlePath, String subtitlePath) {
+        sendTitle(target, titlePath, subtitlePath, null, 5, 30, 10);
+    }
+
+    /**
+     * Shows a title/subtitle from {@code messages.yml} with optional placeholders and tick timings.
+     */
+    public void sendTitle(Audience target, String titlePath, String subtitlePath,
+                          @Nullable Map<String, String> placeholders,
+                          int fadeInTicks, int stayTicks, int fadeOutTicks) {
         Title title = Title.title(
-                component(titlePath),
-                component(subtitlePath),
-                Title.Times.times(Duration.ofMillis(250), Duration.ofMillis(1500), Duration.ofMillis(500))
+                component(titlePath, placeholders),
+                component(subtitlePath, placeholders),
+                Title.Times.times(
+                        Duration.ofMillis(Math.max(0, fadeInTicks) * 50L),
+                        Duration.ofMillis(Math.max(0, stayTicks) * 50L),
+                        Duration.ofMillis(Math.max(0, fadeOutTicks) * 50L))
         );
         target.showTitle(title);
     }

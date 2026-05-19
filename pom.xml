@@ -6,11 +6,11 @@
 
     <groupId>de.deinserver</groupId>
     <artifactId>cpsmp</artifactId>
-    <version>4.0.4</version>
+    <version>4.0.5</version>
     <packaging>jar</packaging>
 
     <name>CPSMP</name>
-    <description>Premium SMP foundation plugin (V4.0.4).</description>
+    <description>Premium SMP foundation plugin (V4.0.5).</description>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>

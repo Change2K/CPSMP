@@ -1,4 +1,4 @@
-# CPSMP V4.0.4 Claims / base protection (German messages in messages.yml).
+# CPSMP V4.0.5 Claims / base protection (German messages in messages.yml).
 
 claims:
   enabled: true
@@ -87,6 +87,18 @@ claims:
       max-vertical-difference-blocks: 6
       prefer-same-height: true
       avoid-obstruction-tops: true
+
+  # Title/subtitle when entering a claim (no chat spam; uses ClaimCache only).
+  claim-entry-display:
+    enabled: true
+    show-to-owner: true
+    show-to-trusted: true
+    show-to-visitors: true
+    fade-in-ticks: 5
+    stay-ticks: 80
+    fade-out-ticks: 10
+    use-title: true
+    use-actionbar: false
 
   # Claim outline: default is BlockDisplay (display mode), non-blocking, no real blocks.
   visuals:

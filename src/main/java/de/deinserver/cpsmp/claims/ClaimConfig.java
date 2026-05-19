@@ -79,6 +79,7 @@ public final class ClaimConfig {
     private final boolean bypassActionBar;
     private final long bypassActionBarCooldownMs;
     private final ClaimAntiEncasementConfig antiEncasement;
+    private final ClaimEntryDisplayConfig entryDisplay;
 
     public ClaimConfig(FileConfiguration file) {
         ConfigurationSection root = file.getConfigurationSection("claims");
@@ -145,6 +146,7 @@ public final class ClaimConfig {
             this.bypassActionBar = true;
             this.bypassActionBarCooldownMs = 2500;
             this.antiEncasement = new ClaimAntiEncasementConfig(null);
+            this.entryDisplay = new ClaimEntryDisplayConfig(null);
             return;
         }
 
@@ -269,6 +271,7 @@ public final class ClaimConfig {
         this.bypassActionBarCooldownMs = Math.max(500, admin != null ? admin.getLong("bypass-actionbar-cooldown-ms", 2500) : 2500);
 
         this.antiEncasement = new ClaimAntiEncasementConfig(root.getConfigurationSection("anti-encasement"));
+        this.entryDisplay = new ClaimEntryDisplayConfig(root.getConfigurationSection("claim-entry-display"));
     }
 
     private static Set<String> lowerSet(List<String> in) {
@@ -399,6 +402,10 @@ public final class ClaimConfig {
 
     public ClaimAntiEncasementConfig getAntiEncasement() {
         return antiEncasement;
+    }
+
+    public ClaimEntryDisplayConfig getEntryDisplay() {
+        return entryDisplay;
     }
 
     public int getMinSizeX() {
