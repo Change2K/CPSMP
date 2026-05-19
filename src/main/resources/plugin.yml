@@ -7,7 +7,7 @@ main: de.deinserver.cpsmp.CPSMPPlugin
 # re-test. See COMPATIBILITY.md.
 api-version: '1.21'
 author: deinserver
-description: Premium SMP foundation plugin (V4.0.3).
+description: Premium SMP foundation plugin (V4.0.4).
 load: POSTWORLD
 
 # Paper runtime library loading. CPSMP uses SQLite for the Auction House,

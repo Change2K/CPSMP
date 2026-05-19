@@ -17,6 +17,7 @@ import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.HashMap;
@@ -99,6 +100,7 @@ public final class AuctionGuiManager {
      * future-proofs us against Folia-style schedulers.
      */
     private final Map<UUID, AuctionGuiSession> sessions = new ConcurrentHashMap<>();
+    private final Map<UUID, Long> infoButtonLastClickMs = new ConcurrentHashMap<>();
 
     public AuctionGuiManager(CPSMPPlugin plugin, AuctionHouseManager auction) {
         this.plugin = plugin;
@@ -125,6 +127,7 @@ public final class AuctionGuiManager {
      * that no longer exist.
      */
     public void closeAll() {
+        infoButtonLastClickMs.clear();
         for (UUID id : new java.util.ArrayList<>(sessions.keySet())) {
             Player p = Bukkit.getPlayer(id);
             AuctionGuiSession s = sessions.get(id);
@@ -361,21 +364,31 @@ public final class AuctionGuiManager {
                 openListings(player, 1);
             }
             case MAIN_SLOT_COLLECT -> openCollect(player);
-            case MAIN_SLOT_INFO -> {
-                // Info button: just print the text help inline so the
-                // GUI stays on the main screen.
-                MessageManager m = messages;
-                m.sendPrefixed(player, "auction.help");
-                m.sendPrefixed(player, "auction.help-browse");
-                m.sendPrefixed(player, "auction.help-buy");
-                m.sendPrefixed(player, "auction.help-sell");
-                m.sendPrefixed(player, "auction.help-listings");
-                m.sendPrefixed(player, "auction.help-cancel");
-                m.sendPrefixed(player, "auction.help-collect");
-            }
+            case MAIN_SLOT_INFO -> handleMainInfoClick(player);
             case MAIN_SLOT_CLOSE -> player.closeInventory();
             default -> { /* filler / no-op */ }
         }
+    }
+
+    private void handleMainInfoClick(@NotNull Player player) {
+        AuctionConfig cfg = auction.getConfig();
+        int cooldownSec = cfg != null ? cfg.getGuiInfoButtonCooldownSeconds() : 5;
+        long cooldownMs = cooldownSec * 1000L;
+        UUID id = player.getUniqueId();
+        long now = System.currentTimeMillis();
+        Long last = infoButtonLastClickMs.get(id);
+        if (last != null && now - last < cooldownMs) {
+            messages.sendActionBar(player, "auction.gui.info-cooldown");
+            return;
+        }
+        infoButtonLastClickMs.put(id, now);
+        messages.sendPrefixed(player, "auction.help");
+        messages.sendPrefixed(player, "auction.help-browse");
+        messages.sendPrefixed(player, "auction.help-buy");
+        messages.sendPrefixed(player, "auction.help-sell");
+        messages.sendPrefixed(player, "auction.help-listings");
+        messages.sendPrefixed(player, "auction.help-cancel");
+        messages.sendPrefixed(player, "auction.help-collect");
     }
 
     // ------------------------------------------------------- browse GUI build

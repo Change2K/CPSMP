@@ -31,6 +31,13 @@ public final class ClaimLandingSupport {
         set.add(Material.LAVA);
         set.add(Material.WATER);
         set.add(Material.VOID_AIR);
+        set.add(Material.CACTUS);
+        set.add(Material.FIRE);
+        set.add(Material.SOUL_FIRE);
+        set.add(Material.MAGMA_BLOCK);
+        set.add(Material.POWDER_SNOW);
+        set.add(Material.SWEET_BERRY_BUSH);
+        set.add(Material.WITHER_ROSE);
         return set;
     }
 
@@ -57,7 +64,7 @@ public final class ClaimLandingSupport {
         return null;
     }
 
-    private static boolean isSafeGround(Block block, Set<Material> unsafe) {
+    static boolean isSafeGroundBlock(Block block, Set<Material> unsafe) {
         Material type = block.getType();
         if (type.isAir()) {
             return false;
@@ -68,11 +75,19 @@ public final class ClaimLandingSupport {
         return type.isSolid();
     }
 
-    private static boolean isPassable(Block block, Set<Material> unsafe) {
+    static boolean isPassableBlock(Block block, Set<Material> unsafe) {
         Material type = block.getType();
         if (unsafe.contains(type)) {
             return false;
         }
         return !type.isSolid() || !type.isOccluding();
+    }
+
+    private static boolean isSafeGround(Block block, Set<Material> unsafe) {
+        return isSafeGroundBlock(block, unsafe);
+    }
+
+    private static boolean isPassable(Block block, Set<Material> unsafe) {
+        return isPassableBlock(block, unsafe);
     }
 }

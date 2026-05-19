@@ -88,6 +88,8 @@ gui:
   # Master GUI switch. When false, /ah falls back to the German text
   # help and the GUI listener simply does nothing.
   enabled: true
+  # Cooldown for the main-hub info button (prevents chat spam).
+  info-button-cooldown-seconds: 5
   # Row counts per screen. Bukkit inventories must be 1-6 rows; the
   # main hub is capped at 3 rows because it never needs more buttons.
   rows:

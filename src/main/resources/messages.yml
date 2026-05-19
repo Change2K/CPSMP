@@ -248,6 +248,7 @@ auction:
     button-info: "<white>Informationen</white>"
     button-info-lore-1: "<gray>Verkaufen: <yellow>/ah sell &lt;Preis&gt;</yellow></gray>"
     button-info-lore-2: "<gray>Kaufen ueber den Markt.</gray>"
+    info-cooldown: "<gray>Bitte warte kurz, bevor du diese Information erneut oeffnest.</gray>"
     button-close: "<red>Schliessen</red>"
     button-back: "<white>Zurueck</white>"
     button-next-page: "<white>Naechste Seite</white>"

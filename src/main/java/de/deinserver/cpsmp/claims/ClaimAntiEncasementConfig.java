@@ -144,10 +144,13 @@ public final class ClaimAntiEncasementConfig {
             boolean enabled,
             boolean allowTrusted,
             int teleportDelaySeconds,
-            int searchRadiusBlocks) {
+            int searchRadiusBlocks,
+            int maxVerticalDifferenceBlocks,
+            boolean preferSameHeight,
+            boolean avoidObstructionTops) {
 
         static ClaimExit defaults() {
-            return new ClaimExit(true, true, 3, 12);
+            return new ClaimExit(true, true, 3, 12, 6, true, true);
         }
 
         static ClaimExit from(@Nullable ConfigurationSection s) {
@@ -158,7 +161,10 @@ public final class ClaimAntiEncasementConfig {
                     s.getBoolean("enabled", true),
                     s.getBoolean("allow-trusted", true),
                     Math.max(0, s.getInt("teleport-delay-seconds", 3)),
-                    Math.max(2, s.getInt("search-radius-blocks", 12)));
+                    Math.max(2, s.getInt("search-radius-blocks", 12)),
+                    Math.max(1, s.getInt("max-vertical-difference-blocks", 6)),
+                    s.getBoolean("prefer-same-height", true),
+                    s.getBoolean("avoid-obstruction-tops", true));
         }
     }
 }

@@ -65,6 +65,8 @@ public final class AuctionConfig {
     private final boolean guiBrowseShowRefreshButton;
     private final boolean guiBrowseShowSortButton;
 
+    private final int guiInfoButtonCooldownSeconds;
+
     private final int cleanupOldListingRetentionDays;
 
     private final boolean debug;
@@ -149,6 +151,9 @@ public final class AuctionConfig {
                 cfg.getString("gui.browse.default-sort", "newest"));
         this.guiBrowseShowRefreshButton = cfg.getBoolean("gui.browse.show-refresh-button", true);
         this.guiBrowseShowSortButton = cfg.getBoolean("gui.browse.show-sort-button", true);
+
+        this.guiInfoButtonCooldownSeconds = Math.max(0,
+                cfg.getInt("gui.info-button-cooldown-seconds", 5));
 
         int rawRetention = cfg.getInt("cleanup.old-listing-retention-days", 30);
         this.cleanupOldListingRetentionDays = Math.max(1, Math.min(rawRetention, 3650));
@@ -282,6 +287,10 @@ public final class AuctionConfig {
 
     public boolean isGuiBrowseShowSortButton() {
         return guiBrowseShowSortButton;
+    }
+
+    public int getGuiInfoButtonCooldownSeconds() {
+        return guiInfoButtonCooldownSeconds;
     }
 
     public int getCleanupOldListingRetentionDays() {

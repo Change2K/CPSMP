@@ -35,7 +35,7 @@ public final class ClaimExitService {
             plugin.getMessageManager().sendPrefixed(player, "claim.exit-not-in-own-claim");
             return;
         }
-        Location dest = findSafeExit(player, at, cfg.searchRadiusBlocks());
+        Location dest = findSafeExit(player, at, cfg);
         if (dest == null) {
             plugin.getMessageManager().sendPrefixed(player, "claim.exit-no-safe-location");
             return;
@@ -55,32 +55,58 @@ public final class ClaimExitService {
         return cfg.allowTrusted() && manager.getCache().isTrusted(claim.id(), player.getUniqueId());
     }
 
-    private boolean canUseExit(@NotNull Player player, @NotNull Claim claim) {
-        return canUseExit(player, claim, manager.getConfig().getAntiEncasement().claimExit());
-    }
-
-    public @Nullable Location findSafeExit(@NotNull Player player, @NotNull Claim claim, int searchRadius) {
+    public @Nullable Location findSafeExit(@NotNull Player player, @NotNull Claim claim,
+                                           @NotNull ClaimAntiEncasementConfig.ClaimExit cfg) {
         World world = player.getWorld();
         if (world == null || !world.getName().equalsIgnoreCase(claim.worldName())) {
             return null;
         }
         Set<org.bukkit.Material> unsafe = ClaimLandingSupport.unsafeMaterials(plugin);
+        int referenceFeetY = player.getLocation().getBlockY();
         int px = player.getLocation().getBlockX();
         int pz = player.getLocation().getBlockZ();
-        List<int[]> candidates = buildExitCandidates(claim, px, pz, searchRadius);
+        List<int[]> candidates = buildExitCandidates(claim, px, pz, cfg.searchRadiusBlocks());
+
+        Location best = pickBestExit(player, claim, cfg, world, unsafe, referenceFeetY, candidates, true);
+        if (best == null) {
+            best = pickBestExit(player, claim, cfg, world, unsafe, referenceFeetY, candidates, false);
+        }
+        return best;
+    }
+
+    private @Nullable Location pickBestExit(@NotNull Player player, @NotNull Claim claim,
+                                            @NotNull ClaimAntiEncasementConfig.ClaimExit cfg,
+                                            @NotNull World world, @NotNull Set<org.bukkit.Material> unsafe,
+                                            int referenceFeetY, @NotNull List<int[]> candidates,
+                                            boolean strict) {
         Location best = null;
-        double bestDist = Double.MAX_VALUE;
+        double bestScore = Double.MAX_VALUE;
+        int maxVert = cfg.maxVerticalDifferenceBlocks();
+
         for (int[] c : candidates) {
-            Location loc = ClaimLandingSupport.findSafeStanding(world, c[0], c[1], unsafe);
+            Location loc = ClaimExitLandingSupport.findStandingNearHeight(
+                    world, c[0], c[1], referenceFeetY, maxVert, unsafe);
             if (loc == null) {
                 continue;
             }
             if (ClaimSpatialUtil.containsBlock(loc.getBlockX(), loc.getBlockZ(), claim)) {
                 continue;
             }
-            double d = loc.distanceSquared(player.getLocation());
-            if (d < bestDist) {
-                bestDist = d;
+            if (strict) {
+                if (!ClaimExitLandingSupport.passesStrictVertical(loc, referenceFeetY, cfg)) {
+                    continue;
+                }
+                if (!ClaimExitLandingSupport.passesObstructionRules(loc, referenceFeetY, world, cfg)) {
+                    continue;
+                }
+            }
+            double score = ClaimExitLandingSupport.scoreExitCandidate(
+                    player, loc, claim, referenceFeetY, cfg, plugin, manager);
+            if (strict && score >= 400.0D) {
+                continue;
+            }
+            if (score < bestScore) {
+                bestScore = score;
                 best = loc;
             }
         }

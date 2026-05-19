@@ -1,4 +1,4 @@
-# CPSMP V4.0.3 Claims / base protection (German messages in messages.yml).
+# CPSMP V4.0.4 Claims / base protection (German messages in messages.yml).
 
 claims:
   enabled: true
@@ -84,6 +84,9 @@ claims:
       allow-trusted: true
       teleport-delay-seconds: 3
       search-radius-blocks: 12
+      max-vertical-difference-blocks: 6
+      prefer-same-height: true
+      avoid-obstruction-tops: true
 
   # Claim outline: default is BlockDisplay (display mode), non-blocking, no real blocks.
   visuals:
